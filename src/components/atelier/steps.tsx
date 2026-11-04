@@ -1,3 +1,4 @@
+import { FeedbackForm } from "@/components/atelier/feedback";
 import { hersForZone, type PersonBrief } from "@/lib/makeup/profile";
 import { optionById, visibleZones, type OptionId } from "@/lib/makeup/references";
 import {
@@ -122,6 +123,7 @@ export function StepsScreen({
           <p className="mt-8 text-sm text-muted">
             El catálogo no vende ni reserva estilistas. El orden es para repetir la referencia en la piel.
           </p>
+          <FeedbackForm situation={situation} />
         </div>
       </div>
     </div>
