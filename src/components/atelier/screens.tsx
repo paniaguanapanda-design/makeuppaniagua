@@ -89,7 +89,7 @@ export function HomeScreen({
           {counts
             ? `${counts.brands} casas · ${counts.stylists} estilistas · ${counts.products} productos`
             : catalogError
-              ? catalogError
+              ? "Catálogo no disponible por ahora"
               : "Abriendo el catálogo"}
         </p>
         <div className="hair" />
