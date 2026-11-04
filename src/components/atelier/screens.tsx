@@ -105,13 +105,6 @@ export function HomeScreen({
             </li>
           ))}
         </ol>
-        <a
-          href="/orla-con-voz.mp4?v=4"
-          download="NEUSTA-video.mp4"
-          className="mt-6 inline-flex min-h-11 items-center text-sm text-blush underline decoration-line underline-offset-4"
-        >
-          Ver el vídeo de NEUSTA
-        </a>
       </div>
     </main>
   );
