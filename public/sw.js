@@ -5,7 +5,7 @@ self.addEventListener("activate", (e) => e.waitUntil(self.clients.claim()));
 self.addEventListener("fetch", (event) => {
   if (event.request.mode !== "navigate") return;
   event.respondWith(
-    fetch(event.request).catch(
+    fetch(event.request, { cache: "no-store" }).catch(
       () =>
         new Response("<h1 style='font-family:serif;text-align:center;margin-top:30vh'>NEUSTA<br><small>Sin conexión</small></h1>", {
           status: 503,
