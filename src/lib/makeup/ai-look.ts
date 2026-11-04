@@ -48,7 +48,10 @@ export const aiLook = createServerFn({ method: "POST" })
         }),
       },
     );
-    if (!response.ok) throw new Error("ia-no-disponible");
+    if (!response.ok) {
+      const body = (await response.text().catch(() => "")).replace(/\s+/g, " ").slice(0, 220);
+      throw new Error(`ia-${response.status}: ${body}`);
+    }
     const payload = (await response.json()) as { candidates?: { content?: { parts?: GeminiPart[] } }[] };
     const part = payload.candidates?.[0]?.content?.parts?.find((p) => p.inlineData?.data);
     if (!part?.inlineData?.data) throw new Error("ia-vacia");
