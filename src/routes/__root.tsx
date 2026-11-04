@@ -17,6 +17,18 @@ export const Route = createRootRoute({
           "NEUSTA pregunta edad, gusto y el maquillaje que ya tienes, y propone looks con marcas de droguería.",
       },
       { name: "theme-color", content: "#a8475f" },
+      { property: "og:type", content: "website" },
+      { property: "og:site_name", content: "NEUSTA" },
+      { property: "og:title", content: "NEUSTA · Tu look, a tu medida" },
+      {
+        property: "og:description",
+        content: "Elige la ocasión y te guiamos con looks de maquillaje pensados para ti.",
+      },
+      { property: "og:image", content: "https://neusta.vercel.app/og.jpg" },
+      { property: "og:image:width", content: "1200" },
+      { property: "og:image:height", content: "630" },
+      { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:image", content: "https://neusta.vercel.app/og.jpg" },
     ],
     links: [
       { rel: "icon", type: "image/svg+xml", href: "/favicon.svg" },
