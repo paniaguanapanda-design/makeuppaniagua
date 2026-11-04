@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { KitScreen } from "@/components/atelier/kit";
 import { DirectoryScreen, HomeScreen, OccasionScreen } from "@/components/atelier/screens";
 import { OptionsScreen } from "@/components/atelier/options";
 import { ScannerScreen } from "@/components/atelier/scanner";
 import { StepsScreen } from "@/components/atelier/steps";
 import { referenceLooks, type ReferenceCard, type ReferenceResult } from "@/lib/makeup/imagine";
+import { aiLook } from "@/lib/makeup/ai-look";
 import { renderCard } from "@/lib/makeup/preview";
 import { noteZones, personLine, type PersonBrief } from "@/lib/makeup/profile";
 import { getDirectory, recommendLook } from "@/lib/makeup/server";
@@ -31,6 +32,9 @@ export function AtelierApp() {
   const [chosen, setChosen] = useState<ReferenceCard | null>(null);
   const [profile, setProfile] = useState<PersonBrief | null>(null);
   const [seen, setSeen] = useState({ skin: "", fromPhoto: false });
+  const upgraded = useRef(new Set<string>());
+  const shotRef = useRef(0);
+  shotRef.current = shot;
 
   const loadDirectory = useCallback(() => {
     setCatalogError(null);
@@ -110,6 +114,35 @@ export function AtelierApp() {
       alive = false;
     };
   }, [view, shot, cards, cardsError, capture, situation, profile]);
+
+  // Con clave de Gemini, cada tarjeta se mejora con una foto editada por IA. Si falla, queda el pintado local.
+  useEffect(() => {
+    if (view !== "options" || !cards || !capture?.read || !situation) return;
+    const read = capture.read;
+    const owned = noteZones(profile?.note ?? "");
+    const jpeg = capture.photo.toDataURL("image/jpeg", 0.85);
+    for (const card of cards) {
+      const id = `${shot}:${card.id}`;
+      if (upgraded.current.has(id)) continue;
+      upgraded.current.add(id);
+      aiLook({
+        data: {
+          situation,
+          optionId: card.id,
+          undertone: read.undertone,
+          depth: read.depth,
+          shape: read.shape,
+          owned,
+          photo: jpeg,
+        },
+      })
+        .then((res) => {
+          if (shotRef.current !== shot) return;
+          setCards((prev) => prev?.map((c) => (c.id === card.id ? { ...c, imageUrl: res.imageUrl } : c)) ?? prev);
+        })
+        .catch(() => {});
+    }
+  }, [view, cards, capture, situation, profile, shot]);
 
   function openDirectory() {
     setBackTo(view === "directory" ? backTo : view);
