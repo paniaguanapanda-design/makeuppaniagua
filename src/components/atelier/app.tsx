@@ -132,7 +132,7 @@ export function AtelierApp() {
         <div className="h-0.5 bg-blush" />
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
           <button type="button" onClick={() => setView("home")} className="font-display text-xl tracking-wide">
-            ORLA
+            NEUSTA
           </button>
           <nav className="flex items-center gap-1">
             {view !== "home" ? (

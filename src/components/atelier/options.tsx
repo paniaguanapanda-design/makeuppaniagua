@@ -35,7 +35,7 @@ export function OptionsScreen({
   const occasion = situationById(situation);
   return (
     <div className="mx-auto max-w-6xl px-4 pb-16 pt-8">
-      <p className="brand text-ink">ORLA</p>
+      <p className="brand text-ink">NEUSTA</p>
       <h1 className="mx-auto mt-7 max-w-3xl text-center text-4xl sm:text-6xl">
         Tres looks <em>para ti</em>
       </h1>

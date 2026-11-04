@@ -41,7 +41,7 @@ export function StepsScreen({
 
   return (
     <div className="mx-auto max-w-6xl px-4 pb-16 pt-8">
-      <p className="brand text-ink">ORLA</p>
+      <p className="brand text-ink">NEUSTA</p>
       <h1 data-testid="look-title" className="mt-7 text-center text-4xl sm:text-6xl">
         {card.title}
       </h1>

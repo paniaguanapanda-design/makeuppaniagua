@@ -50,11 +50,11 @@ export function HomeScreen({
       <section className="relative min-h-[100svh] overflow-hidden bg-clay">
         <img
           src="/studio/olivo.jpg"
-          alt="Retrato de estudio, una de las referencias de ORLA"
+          alt="Retrato de estudio, una de las referencias de NEUSTA"
           className="absolute inset-0 h-full w-full object-cover object-[center_20%]"
         />
         <div className="absolute inset-0 bg-gradient-to-b from-bg/35 via-transparent via-30% to-[#e9b6c0]/35" />
-        <p className="brand absolute inset-x-0 top-8 text-ink">ORLA</p>
+        <p className="brand absolute inset-x-0 top-8 text-ink">NEUSTA</p>
 
         <div className="glass absolute inset-x-3.5 bottom-3.5 rounded-[2rem] px-5 pb-5 pt-7">
           <h1 className="text-[2.6rem] leading-[1.02]">
@@ -107,10 +107,10 @@ export function HomeScreen({
         </ol>
         <a
           href="/orla-con-voz.mp4?v=4"
-          download="ORLA-video.mp4"
+          download="NEUSTA-video.mp4"
           className="mt-6 inline-flex min-h-11 items-center text-sm text-blush underline decoration-line underline-offset-4"
         >
-          Ver el vídeo de ORLA
+          Ver el vídeo de NEUSTA
         </a>
       </div>
     </main>
@@ -120,7 +120,7 @@ export function HomeScreen({
 export function OccasionScreen({ onPick }: { onPick: (id: SituationId) => void }) {
   return (
     <div className="mx-auto max-w-6xl px-5 pb-16 pt-9 text-center">
-      <p className="brand text-ink">ORLA</p>
+      <p className="brand text-ink">NEUSTA</p>
       <div className="dots mt-6" aria-hidden="true">
         <i className="on" />
         <i />
@@ -183,7 +183,7 @@ export function DirectoryScreen({
       <h1 className="mt-3 text-4xl sm:text-6xl">Casas y estilistas</h1>
       <p className="mt-4 max-w-2xl text-muted">
         Referencia para armar el look. No es una tienda ni una cita real con estas personas:
-        el roster de estilistas es de la casa ORLA.
+        el roster de estilistas es de la casa NEUSTA.
       </p>
       <h2 className="mt-12 text-3xl">Estilistas</h2>
       <ul className="mt-4 divide-y divide-line border-y border-line">
