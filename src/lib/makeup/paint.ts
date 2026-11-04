@@ -118,10 +118,10 @@ function boosted(base: Technique, boost: number): Technique {
     blush: up(base.blush),
     eyeSmoke: up(base.eyeSmoke),
     eyeLiner: up(base.eyeLiner),
-    lipCover: up(base.lipCover),
+    lipCover: base.lipCover,
     brow: up(base.brow),
     light: up(base.light),
-    pigment: Math.min(0.9, base.pigment + boost * 0.38),
+    pigment: Math.min(0.9, base.pigment + boost * 0.3),
   };
 }
 
