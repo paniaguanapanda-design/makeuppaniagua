@@ -5,7 +5,7 @@ import { OptionsScreen } from "@/components/atelier/options";
 import { ScannerScreen } from "@/components/atelier/scanner";
 import { StepsScreen } from "@/components/atelier/steps";
 import { referenceLooks, type ReferenceCard, type ReferenceResult } from "@/lib/makeup/imagine";
-import { jpegDataUrl } from "@/lib/makeup/photo";
+import { renderCard } from "@/lib/makeup/preview";
 import { noteZones, personLine, type PersonBrief } from "@/lib/makeup/profile";
 import { getDirectory, recommendLook } from "@/lib/makeup/server";
 import type { Capture, Directory, LookPlan, SituationId } from "@/lib/makeup/types";
@@ -79,24 +79,12 @@ export function AtelierApp() {
   useEffect(() => {
     if (view !== "options" || cards || cardsError || !capture?.read || !situation) return;
     let alive = true;
-    const read = capture.read;
     const owned = noteZones(profile?.note ?? "");
     const jobKey = `${shot}:${owned.join(",")}:${profile?.age ?? ""}:${profile?.tastes.join(",") ?? ""}:${profile?.note ?? ""}:${profile?.skin ?? ""}`;
     let job = referenceJobs.get(jobKey);
     if (!job) {
       job = referenceLooks({
-        data: {
-          situation,
-          undertone: read.undertone,
-          depth: read.depth,
-          shape: read.shape,
-          owned,
-          age: profile?.age ?? "joven",
-          tastes: profile?.tastes ?? [],
-          note: profile?.note ?? "",
-          skin: profile?.skin ?? "",
-          photo: jpegDataUrl(capture.photo),
-        },
+        data: { situation, owned, skin: profile?.skin ?? "" },
       });
       referenceJobs.set(jobKey, job);
     }
@@ -104,7 +92,9 @@ export function AtelierApp() {
     job
       .then((data) => {
         if (!alive) return;
-        setCards(data.cards);
+        setCards(
+          data.cards.map((card) => ({ ...card, imageUrl: renderCard(card, capture, situation, owned) })),
+        );
         setSeen({ skin: data.skinSeen, fromPhoto: data.skinFromPhoto });
         setCardsError(null);
       })
