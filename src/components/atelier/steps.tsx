@@ -41,13 +41,14 @@ export function StepsScreen({
 
   return (
     <div className="mx-auto max-w-6xl px-4 pb-16 pt-8">
-      <p className="text-xs tracking-widest text-muted uppercase">
-        {occasion.label} · {card.title}
-      </p>
-      <h1 data-testid="look-title" className="mt-3 text-4xl sm:text-6xl">
+      <p className="brand text-ink">ORLA</p>
+      <h1 data-testid="look-title" className="mt-7 text-center text-4xl sm:text-6xl">
         {card.title}
       </h1>
-      <p className="mt-4 max-w-2xl text-muted">{card.line}</p>
+      <div className="hair" />
+      <p className="mx-auto max-w-2xl text-center text-sm text-muted">
+        {occasion.label} · {card.line}
+      </p>
       {summary ? <p className="mt-2 text-sm">{summary}</p> : null}
       {note ? (
         <p className="mt-4 max-w-2xl rounded-2xl border border-line bg-surface px-4 py-3 text-sm">
@@ -79,7 +80,7 @@ export function StepsScreen({
             </button>
           ) : null}
           {plan ? (
-            <aside className="rounded-2xl border border-line bg-surface p-5">
+            <aside className="glass rounded-[1.6rem] p-5 text-center">
               <p className="text-xs tracking-widest text-muted uppercase">Estilista</p>
               <h2 className="mt-2 text-3xl">{plan.stylist.name}</h2>
               <p className="text-sm text-muted">

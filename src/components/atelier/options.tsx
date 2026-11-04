@@ -35,14 +35,14 @@ export function OptionsScreen({
   const occasion = situationById(situation);
   return (
     <div className="mx-auto max-w-6xl px-4 pb-16 pt-8">
-      <p className="text-xs tracking-widest text-muted uppercase">{occasion.label}</p>
-      <h1 className="mt-3 max-w-3xl text-4xl sm:text-6xl">Tres formas de quedar</h1>
-      <p className="mt-4 max-w-2xl text-muted">
-        Cada imagen es una referencia de cómo quedaría en este rostro. Van de casi nada a un look más hecho:
-        las primeras usan pocos productos y no saturan. Elige una. Los pasos llegan después.
-      </p>
+      <p className="brand text-ink">ORLA</p>
+      <h1 className="mx-auto mt-7 max-w-3xl text-center text-4xl sm:text-6xl">
+        Tres looks <em>para ti</em>
+      </h1>
+      <div className="hair" />
+      <p className="text-center text-sm text-muted">{occasion.label} · Elige tu favorito.</p>
       {read ? (
-        <p className="mt-4 max-w-2xl text-sm">
+        <p className="mx-auto mt-4 max-w-2xl text-center text-sm">
           {SHAPE_LABEL[read.shape]} · {TONE_LABEL[read.undertone]} · {DEPTH_LABEL[read.depth]}.{" "}
           {SHAPE_NOTE[read.shape]}
           {summary ? ` ${summary}.` : ""}
@@ -50,7 +50,7 @@ export function OptionsScreen({
       ) : (
         <p className="mt-4 text-sm text-blush">No pude leer este rostro, así que no armo una referencia genérica.</p>
       )}
-      {skinLine ? <p className="mt-2 max-w-2xl text-sm">{skinLine}</p> : null}
+      {skinLine ? <p className="mx-auto mt-2 max-w-2xl text-center text-sm">{skinLine}</p> : null}
       {error ? (
         <div className="mt-6">
           <p className="text-sm text-blush">{error}</p>
@@ -67,7 +67,7 @@ export function OptionsScreen({
                 type="button"
                 data-testid={`option-${item.id}`}
                 onClick={() => onChoose(item)}
-                className="overflow-hidden rounded-2xl border border-line bg-surface text-left"
+                className="look-card overflow-hidden text-center"
               >
                 <img src={item.imageUrl} alt="" className="frame-portrait w-full object-cover" />
                 <span className="block px-4 py-4">
@@ -78,7 +78,7 @@ export function OptionsScreen({
             ))
           : loading
             ? [0, 1, 2, 3, 4].map((item) => (
-                <div key={item} className="overflow-hidden rounded-2xl border border-line bg-surface">
+                <div key={item} className="overflow-hidden rounded-[1.6rem] border border-line bg-surface">
                   <div className="frame-portrait animate-pulse bg-clay/40" />
                   <p className="px-4 py-4 text-sm text-muted">
                     {item === 0
@@ -91,9 +91,7 @@ export function OptionsScreen({
               ))
             : null}
       </div>
-      <p className="mt-6 text-sm text-muted">
-        La foto no se guarda. Se usa un momento para crear estas referencias.
-      </p>
+      <p className="mt-6 text-center text-sm text-muted">Tu foto no se guarda.</p>
     </div>
   );
 }

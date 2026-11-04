@@ -46,94 +46,93 @@ export function HomeScreen({
   onDirectory: () => void;
 }) {
   return (
-    <main data-testid="home" className="mx-auto flex max-w-6xl flex-col px-5 pb-12 pt-7">
-      <p className="text-[11px] font-medium tracking-[0.18em] text-blush uppercase">
-        Asesoría de maquillaje · A tu manera
-      </p>
-      <h1 className="mt-4 max-w-[20ch] text-[2.65rem] leading-[1.04] tracking-[-0.045em]">
-        Primero la ocasión. Después, tu rostro.
-      </h1>
-      <p className="mt-4 max-w-xl text-base leading-7 text-muted">
-        Un look pensado para ti: lo que te gusta, tu piel y lo que ya tienes.
-      </p>
-
-      <figure className="home-portrait relative mt-6 overflow-hidden rounded-[1.6rem]">
+    <main data-testid="home" className="flex flex-col text-center">
+      <section className="relative min-h-[100svh] overflow-hidden bg-clay">
         <img
           src="/studio/olivo.jpg"
           alt="Retrato de estudio, una de las referencias de ORLA"
-          className="h-full w-full object-cover object-[center_38%]"
+          className="absolute inset-0 h-full w-full object-cover object-[center_20%]"
         />
-        <figcaption className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-3 bg-gradient-to-t from-black/60 to-transparent px-4 pb-4 pt-12 text-white">
-          <span>
-            <span className="block text-[10px] tracking-[0.16em] uppercase">Tu piel · Tu estilo</span>
-            <span className="mt-1 block font-display text-xl">Belleza sin fórmulas</span>
-          </span>
-          <span className="mb-1 rounded-full border border-white/60 px-3 py-1 text-[10px] tracking-wide">
-            ORLA STUDIO
-          </span>
-        </figcaption>
-      </figure>
+        <div className="absolute inset-0 bg-gradient-to-b from-bg/35 via-transparent via-30% to-[#e9b6c0]/35" />
+        <p className="brand absolute inset-x-0 top-8 text-ink">ORLA</p>
 
-      <div className="mt-5 flex flex-col gap-3">
-        <button
-          type="button"
-          data-testid="start"
-          onClick={onStart}
-          className="flex min-h-12 items-center justify-between rounded-2xl bg-ink px-5 text-left text-surface"
+        <div className="glass absolute inset-x-3.5 bottom-3.5 rounded-[2rem] px-5 pb-5 pt-7">
+          <h1 className="text-[2.6rem] leading-[1.02]">
+            Tu look,
+            <br />
+            <em>a tu medida</em>
+          </h1>
+          <div className="hair" />
+          <p className="mb-5 text-[13px] leading-6 text-muted">Elige la ocasión y te guiamos.</p>
+          <div className="flex flex-col gap-2.5">
+            <button
+              type="button"
+              data-testid="start"
+              onClick={onStart}
+              className="bg-ink min-h-[3.1rem] px-6 text-[14px] font-medium"
+            >
+              Empezar
+            </button>
+            <button
+              type="button"
+              onClick={onDirectory}
+              className="min-h-11 rounded-full border border-blush/35 bg-white/55 px-6 text-[13px] font-medium text-blush"
+            >
+              Explorar estilistas
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <div className="px-6 pb-12 pt-8">
+        <p className="text-xs tracking-wide text-muted tabular-nums">
+          {counts
+            ? `${counts.brands} casas · ${counts.stylists} estilistas · ${counts.products} productos`
+            : catalogError
+              ? catalogError
+              : "Abriendo el catálogo"}
+        </p>
+        <div className="hair" />
+        <ol className="mt-4 flex flex-col gap-5">
+          {[
+            ["La ocasión", "Día, cita, boda o fiesta."],
+            ["Tus palabras", "Tu gusto y lo que ya usas."],
+            ["Tu referencia", "Tres looks; tú eliges."],
+          ].map(([title, line]) => (
+            <li key={title}>
+              <span className="block font-display text-2xl">{title}</span>
+              <span className="mt-0.5 block text-sm text-muted">{line}</span>
+            </li>
+          ))}
+        </ol>
+        <a
+          href="/orla-con-voz.mp4?v=4"
+          download="ORLA-video.mp4"
+          className="mt-6 inline-flex min-h-11 items-center text-sm text-blush underline decoration-line underline-offset-4"
         >
-          <span>Empezar mi look</span>
-          <ArrowRight className="size-5" aria-hidden="true" />
-        </button>
-        <button
-          type="button"
-          onClick={onDirectory}
-          className="min-h-12 rounded-2xl border border-line bg-surface px-5 text-left"
-        >
-          Explorar casas y estilistas
-        </button>
+          Ver el vídeo de ORLA
+        </a>
       </div>
-      <p className="mt-4 text-xs tracking-wide text-muted tabular-nums">
-        {counts
-          ? `${counts.brands} casas · ${counts.stylists} estilistas · ${counts.products} productos`
-          : catalogError
-            ? catalogError
-            : "Abriendo el catálogo"}
-      </p>
-      <ol className="mt-7 divide-y divide-line border-y border-line">
-        {[
-          ["01", "La ocasión", "Día, cita, boda o cualquier plan."],
-          ["02", "Tus palabras", "Tu gusto, tu piel y lo que ya usas."],
-          ["03", "Tu referencia", "Tres opciones; tú eliges los pasos."],
-        ].map(([index, title, line]) => (
-          <li key={index} className="flex items-start gap-4 py-4">
-            <span className="pt-0.5 text-xs font-medium tracking-widest text-blush">{index}</span>
-            <span>
-              <span className="block font-display text-xl">{title}</span>
-              <span className="mt-1 block text-sm text-muted">{line}</span>
-            </span>
-          </li>
-        ))}
-      </ol>
-      <a
-        href="/orla-con-voz.mp4?v=4"
-        download="ORLA-video.mp4"
-        className="mt-5 inline-flex min-h-11 items-center text-sm text-muted underline decoration-line underline-offset-4"
-      >
-        Ver y descargar el vídeo de ORLA
-      </a>
     </main>
   );
 }
 
 export function OccasionScreen({ onPick }: { onPick: (id: SituationId) => void }) {
   return (
-    <div className="mx-auto max-w-6xl px-4 pb-16 pt-8">
-      <p className="text-xs tracking-widest text-muted uppercase">Paso 1</p>
-      <h1 className="mt-3 max-w-2xl text-4xl sm:text-6xl">¿Para qué es el maquillaje?</h1>
-      <p className="mt-4 max-w-xl text-muted">
-        Después preguntas qué productos ya tienes. La cámara viene al final.
-      </p>
-      <div className="mt-8 grid grid-cols-2 gap-3 lg:grid-cols-4">
+    <div className="mx-auto max-w-6xl px-5 pb-16 pt-9 text-center">
+      <p className="brand text-ink">ORLA</p>
+      <div className="dots mt-6" aria-hidden="true">
+        <i className="on" />
+        <i />
+        <i />
+        <i />
+      </div>
+      <h1 className="mt-7 text-[2.4rem] leading-[1.04] sm:text-6xl">
+        ¿Para qué <em>ocasión</em>?
+      </h1>
+      <div className="hair" />
+      <p className="text-sm text-muted">Elige una.</p>
+      <div className="mt-7 grid grid-cols-2 gap-3 lg:grid-cols-4">
         {SITUATIONS.map((item) => {
           const Icon = ICONS[item.id];
           return (
@@ -142,11 +141,11 @@ export function OccasionScreen({ onPick }: { onPick: (id: SituationId) => void }
               type="button"
               data-testid={`occasion-${item.id}`}
               onClick={() => onPick(item.id)}
-              className="soft-card flex min-h-36 flex-col items-start justify-between p-4 text-left transition duration-200 hover:-translate-y-0.5 hover:border-blush"
+              className="occasion-tile flex min-h-[7rem] flex-col items-center justify-center gap-1.5 px-3 py-4 text-center"
             >
-              <Icon className="size-5 text-blush" strokeWidth={1.75} aria-hidden="true" />
-              <span className="mt-6 block font-display text-2xl">{item.label}</span>
-              <span className="mt-1 block text-sm text-muted">{item.line}</span>
+              <Icon className="size-[22px] text-blush" strokeWidth={1.5} aria-hidden="true" />
+              <span className="block font-display text-[1.4rem] font-semibold leading-none">{item.label}</span>
+              <span className="block text-[11px] text-muted">{item.line}</span>
             </button>
           );
         })}
