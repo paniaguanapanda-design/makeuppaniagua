@@ -19,8 +19,9 @@ type GeminiPart = { inlineData?: { mimeType?: string; data?: string } };
 export const aiLook = createServerFn({ method: "POST" })
   .validator(schema)
   .handler(async ({ data }): Promise<{ imageUrl: string }> => {
+    const grokKey = process.env.XAI_API_KEY;
     const key = process.env.GEMINI_API_KEY;
-    if (!key) throw new Error("sin-clave");
+    if (!grokKey && !key) throw new Error("sin-clave");
     const option = optionsFor(data.situation as SituationId).find((o) => o.id === data.optionId);
     if (!option) throw new Error("look-desconocido");
     const prompt = referencePrompt(
@@ -29,6 +30,32 @@ export const aiLook = createServerFn({ method: "POST" })
       { shape: data.shape, undertone: data.undertone, depth: data.depth, skinHex: "#000000" },
       data.owned as ZoneId[],
     );
+    if (grokKey) {
+      const edit = await fetch("https://api.x.ai/v1/images/edits", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${grokKey}` },
+        signal: AbortSignal.timeout(55_000),
+        body: JSON.stringify({
+          model: "grok-imagine-image-2.0",
+          prompt,
+          image: { url: data.photo, type: "image_url" },
+          aspect_ratio: "3:4",
+        }),
+      });
+      if (!edit.ok) {
+        const body = (await edit.text().catch(() => "")).replace(/\s+/g, " ").slice(0, 220);
+        throw new Error(`grok-${edit.status}: ${body}`);
+      }
+      const made = (await edit.json()) as { data?: { url?: string; b64_json?: string }[] };
+      const item = made.data?.[0];
+      if (item?.b64_json) return { imageUrl: `data:image/jpeg;base64,${item.b64_json}` };
+      if (!item?.url) throw new Error("grok-vacia");
+      const file = await fetch(item.url, { signal: AbortSignal.timeout(20_000) });
+      if (!file.ok) throw new Error("grok-descarga");
+      const bytes = Buffer.from(await file.arrayBuffer()).toString("base64");
+      return { imageUrl: `data:${file.headers.get("content-type") ?? "image/jpeg"};base64,${bytes}` };
+    }
+    if (!key) throw new Error("sin-clave");
     const response = await fetch(
       "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent",
       {
