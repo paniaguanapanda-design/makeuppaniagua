@@ -1,3 +1,4 @@
+import { InstallPrompt } from "@/components/install-prompt";
 import { createRootRoute, HeadContent, Outlet, Scripts } from "@tanstack/react-router";
 import { AuthProvider } from "@/lib/auth/provider";
 import { PreviewHostBridge } from "@/components/preview-host-bridge";
@@ -50,6 +51,7 @@ export const Route = createRootRoute({
       </head>
       <body>
         <PreviewHostBridge />
+        <InstallPrompt />
         <AuthProvider>
           <Outlet />
         </AuthProvider>
