@@ -23,6 +23,8 @@ export type Recipe = {
 export type MakeupSubject = {
   situation: SituationId;
   read: FaceRead | null;
+  /** 0 = natural. 1 = referencia visible para comparar looks. */
+  boost?: number;
 };
 
 type Technique = {
@@ -105,6 +107,22 @@ function placeOf(shape: FaceShape): Place {
     default:
       return { blushOut: 0.28, blushUp: 0.08, hollow: 1, jaw: 0.72, noseLight: 0.8 };
   }
+}
+
+function boosted(base: Technique, boost: number): Technique {
+  if (boost <= 0) return base;
+  const up = (v: number) => Math.min(1, v * (1 + boost * 0.7) + boost * 0.08);
+  return {
+    ...base,
+    contour: up(base.contour),
+    blush: up(base.blush),
+    eyeSmoke: up(base.eyeSmoke),
+    eyeLiner: up(base.eyeLiner),
+    lipCover: up(base.lipCover),
+    brow: up(base.brow),
+    light: up(base.light),
+    pigment: Math.min(0.9, base.pigment + boost * 0.38),
+  };
 }
 
 function depthGain(depth: Depth) {
@@ -618,7 +636,7 @@ function drawCosmetics(
   const shape = read?.shape ?? "ovalado";
   const undertone = read?.undertone ?? "neutro";
   const depth = read?.depth ?? "media";
-  const tech = TECHNIQUE[subject.situation];
+  const tech = boosted(TECHNIQUE[subject.situation], subject.boost ?? 0);
   const place = placeOf(shape);
   const gain = depthGain(depth);
   const zone = (name: PaintZone) => recipe.zones[name];

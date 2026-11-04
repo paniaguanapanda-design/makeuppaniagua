@@ -58,6 +58,7 @@ export function renderCard(
   paintPortrait(target, capture.photo, capture.landmarks, recipeFor(card, capture, owned), 0, {
     situation,
     read: capture.read,
+    boost: 1,
   });
   return target.toDataURL("image/jpeg", 0.88);
 }
