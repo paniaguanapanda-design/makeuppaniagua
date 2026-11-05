@@ -33,6 +33,7 @@ export function AtelierApp() {
   const [profile, setProfile] = useState<PersonBrief | null>(null);
   const [seen, setSeen] = useState({ skin: "", fromPhoto: false });
   const upgraded = useRef(new Set<string>());
+  const [aiNote, setAiNote] = useState("");
   const shotRef = useRef(0);
   shotRef.current = shot;
 
@@ -138,9 +139,12 @@ export function AtelierApp() {
       })
         .then((res) => {
           if (shotRef.current !== shot) return;
+          setAiNote("ok");
           setCards((prev) => prev?.map((c) => (c.id === card.id ? { ...c, imageUrl: res.imageUrl } : c)) ?? prev);
         })
-        .catch(() => {});
+        .catch((error: unknown) => {
+          if (shotRef.current === shot) setAiNote(error instanceof Error ? error.message.slice(0, 160) : "error");
+        });
     }
   }, [view, cards, capture, situation, profile, shot]);
 
@@ -229,6 +233,11 @@ export function AtelierApp() {
             setView("options");
           }}
         />
+      ) : null}
+      {view === "options" && aiNote ? (
+        <p className="mx-auto max-w-6xl px-4 pt-2 text-center text-xs text-muted">
+          {aiNote === "ok" ? "IA: foto mejorada" : `IA no disponible: ${aiNote}`}
+        </p>
       ) : null}
       {view === "options" && situation ? (
         <OptionsScreen
