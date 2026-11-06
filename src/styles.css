@@ -310,11 +310,13 @@ h2 em {
 }
 
 .glass {
-  background: rgb(255 248 246 / 68%);
-  -webkit-backdrop-filter: blur(18px) saturate(150%);
-  backdrop-filter: blur(18px) saturate(150%);
-  border: 1px solid rgb(255 255 255 / 75%);
-  box-shadow: 0 12px 34px rgb(90 40 50 / 20%);
+  background: rgb(255 250 248 / 74%);
+  -webkit-backdrop-filter: blur(16px) saturate(135%);
+  backdrop-filter: blur(16px) saturate(135%);
+  border: 1px solid rgb(255 255 255 / 82%);
+  box-shadow:
+    0 8px 24px rgb(58 42 46 / 10%),
+    inset 0 1px 0 rgb(255 255 255 / 72%);
 }
 
 .home-card {

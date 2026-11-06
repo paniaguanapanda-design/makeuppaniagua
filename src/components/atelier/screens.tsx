@@ -35,13 +35,9 @@ const TIER_LABEL: Record<string, string> = {
 };
 
 export function HomeScreen({
-  counts,
-  catalogError,
   onStart,
   onDirectory,
 }: {
-  counts: Directory["counts"] | null;
-  catalogError: string | null;
   onStart: () => void;
   onDirectory: () => void;
 }) {
@@ -83,29 +79,6 @@ export function HomeScreen({
           </div>
         </div>
       </section>
-
-      <div className="px-6 pb-12 pt-8">
-        <p className="text-xs tracking-wide text-muted tabular-nums">
-          {counts
-            ? `${counts.brands} casas · ${counts.stylists} estilistas · ${counts.products} productos`
-            : catalogError
-              ? "Catálogo no disponible por ahora"
-              : "Abriendo el catálogo"}
-        </p>
-        <div className="hair" />
-        <ol className="mt-4 flex flex-col gap-5">
-          {[
-            ["La ocasión", "Día, cita, boda o fiesta."],
-            ["Tus palabras", "Tu gusto y lo que ya usas."],
-            ["Tu referencia", "Tres looks; tú eliges."],
-          ].map(([title, line]) => (
-            <li key={title}>
-              <span className="block font-display text-2xl">{title}</span>
-              <span className="mt-0.5 block text-sm text-muted">{line}</span>
-            </li>
-          ))}
-        </ol>
-      </div>
     </main>
   );
 }

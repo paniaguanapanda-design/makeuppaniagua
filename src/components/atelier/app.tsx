@@ -194,8 +194,6 @@ export function AtelierApp() {
       </header>
       {view === "home" ? (
         <HomeScreen
-          counts={directory?.counts ?? null}
-          catalogError={catalogError}
           onStart={() => setView("occasion")}
           onDirectory={openDirectory}
         />
