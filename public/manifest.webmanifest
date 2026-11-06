@@ -1,0 +1,35 @@
+{
+  "name": "NEUSTA",
+  "short_name": "NEUSTA",
+  "description": "Tu look, a tu medida. Asesoría de maquillaje personalizada.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#faf7f2",
+  "theme_color": "#faf7f2",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/__grok/icon-180.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    },
+    {
+      "src": "/__grok/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/__grok/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
