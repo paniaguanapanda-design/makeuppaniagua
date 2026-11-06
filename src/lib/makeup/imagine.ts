@@ -29,6 +29,7 @@ export type ReferenceResult = {
   skinSeen: string;
   skinFromPhoto: boolean;
   limited?: boolean;
+  imageError?: string;
 };
 
 const SKIN_ASK =
@@ -83,7 +84,10 @@ async function readSkin(photo: string) {
         ],
       }),
     });
-    if (!response.ok) return "";
+    if (!response.ok) {
+      console.warn("[imagine] skin analysis failed", response.status);
+      return "";
+    }
     const payload = await response.json();
     return textFromResponse(payload).trim().slice(0, 160);
   } catch {
@@ -91,33 +95,64 @@ async function readSkin(photo: string) {
   }
 }
 
+function imageApiError(status: number): string {
+  switch (status) {
+    case 401:
+      return "xAI no acepta la clave configurada (401). Revisa XAI_API_KEY.";
+    case 402:
+      return "xAI rechazó la solicitud por facturación (402). Revisa el crédito de la cuenta asociada a la clave.";
+    case 403:
+      return "xAI denegó el acceso (403). Revisa los permisos de la clave y del modelo.";
+    case 400:
+    case 404:
+    case 422:
+      return `xAI rechazó la solicitud de imagen (${status}). Revisa el modelo, la foto y el formato de la solicitud.`;
+    case 429:
+      return "xAI ha limitado las solicitudes (429). Revisa tus límites y vuelve a intentarlo más tarde.";
+    default:
+      return `No pude crear la imagen: xAI respondió ${status}. Inténtalo más tarde.`;
+  }
+}
+
 async function editPortrait(photo: string, prompt: string): Promise<string> {
   const key = process.env.XAI_API_KEY;
-  if (!key) throw new Error("Sin XAI_API_KEY");
+  if (!key) throw new Error("La generación no está configurada: falta XAI_API_KEY.");
 
-  console.log("[imagine] calling /v1/images/edits");
-  const response = await fetch("https://api.x.ai/v1/images/edits", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${key}`,
-    },
-    signal: AbortSignal.timeout(60_000),
-    body: JSON.stringify({
-      model: "grok-imagine-image-2.0",
-      prompt,
-      image: { url: photo, type: "image_url" },
-      n: 1,
-    }),
-  });
+  let response: Response;
+  try {
+    response = await fetch("https://api.x.ai/v1/images/edits", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${key}`,
+      },
+      signal: AbortSignal.timeout(60_000),
+      body: JSON.stringify({
+        model: "grok-imagine-image-2.0",
+        prompt,
+        image: { url: photo, type: "image_url" },
+        n: 1,
+      }),
+    });
+  } catch {
+    throw new Error("No pude conectar con xAI o la solicitud tardó demasiado. Inténtalo de nuevo.");
+  }
 
-  const text = await response.text();
-  console.log("[imagine] status", response.status, text.slice(0, 500));
-  if (!response.ok) throw new Error(text || "Error de xAI");
+  if (!response.ok) {
+    // Never log or return the upstream body: it may contain private request data.
+    console.warn("[imagine] image edit failed", response.status);
+    throw new Error(imageApiError(response.status));
+  }
 
-  const payload = JSON.parse(text) as { data?: { url?: string }[] };
-  const url = payload.data?.[0]?.url;
-  if (!url) throw new Error("Sin URL de imagen");
+  let payload: { data?: { url?: string }[] };
+  try {
+    payload = await response.json();
+  } catch {
+    throw new Error("xAI devolvió una respuesta de imagen no válida. Inténtalo de nuevo.");
+  }
+  const url = payload?.data?.[0]?.url;
+  if (!url || typeof url !== "string")
+    throw new Error("xAI no devolvió una imagen. Inténtalo de nuevo.");
   return url;
 }
 
@@ -125,9 +160,12 @@ export const referenceLooks = createServerFn({ method: "POST" })
   .validator(schema)
   .handler(async ({ data }): Promise<ReferenceResult> => {
     const key = process.env.XAI_API_KEY;
-    const flag = process.env.ENABLE_IMAGE_GEN;
-    const max = Number(process.env.MAX_IMAGE_GENERATIONS ?? 1);
-    console.log("[imagine] key=", !!key, "flag=", flag, "max=", max);
+    // Accept the existing misspelled variable; the canonical name takes precedence.
+    const flag = process.env.ENABLE_IMAGE_GEN ?? process.env.ENEBLE_IMAGE_GEN;
+    const configuredMax = Number(process.env.MAX_IMAGE_GENERATIONS ?? 1);
+    const max = Number.isFinite(configuredMax)
+      ? Math.min(3, Math.max(1, Math.floor(configuredMax)))
+      : 1;
 
     const situation = data.situation as SituationId;
     const read: FaceRead = {
@@ -149,18 +187,23 @@ export const referenceLooks = createServerFn({ method: "POST" })
     };
 
     if (!key || flag === "false") {
-      console.log("[imagine] skipping — no key or disabled");
       const cards: ReferenceCard[] = options.slice(0, 3).map((option) => ({
         id: option.id,
         title: option.title,
         line: option.line,
         imageUrl: "",
       }));
-      return { cards, skinSeen: skin, skinFromPhoto: !written && Boolean(skin) };
+      return {
+        cards,
+        skinSeen: skin,
+        skinFromPhoto: !written && Boolean(skin),
+        ...(!key && flag !== "false"
+          ? { imageError: "La generación no está configurada: falta XAI_API_KEY." }
+          : {}),
+      };
     }
 
-    const toGenerate = options.slice(0, Math.max(1, max));
-    console.log("[imagine] generating", toGenerate.length);
+    const toGenerate = options.slice(0, max);
 
     const settled = await Promise.allSettled(
       toGenerate.map((option) =>
@@ -172,6 +215,7 @@ export const referenceLooks = createServerFn({ method: "POST" })
     );
 
     const cards: ReferenceCard[] = [];
+    let imageError: string | undefined;
     settled.forEach((result, index) => {
       const option = toGenerate[index];
       if (!option) return;
@@ -183,23 +227,29 @@ export const referenceLooks = createServerFn({ method: "POST" })
           imageUrl: result.value,
         });
       } else {
-        console.error("[imagine] fail", option.id, String(result.reason));
+        imageError ??=
+          result.reason instanceof Error
+            ? result.reason.message
+            : "No pude crear la imagen con xAI.";
       }
     });
 
-    for (let i = cards.length; i < 3 && i < options.length; i++) {
-      const option = options[i];
-      cards.push({
-        id: option.id,
-        title: option.title,
-        line: option.line,
-        imageUrl: "",
-      });
-    }
+    // Keep every option once, including when only some image requests succeeded.
+    const generated = new Map(cards.map((card) => [card.id, card]));
+    const resultCards = options.slice(0, 3).map(
+      (option) =>
+        generated.get(option.id) ?? {
+          id: option.id,
+          title: option.title,
+          line: option.line,
+          imageUrl: "",
+        },
+    );
 
-    if (!cards.length) {
-      throw new Error("No pude generar referencias. Prueba con otra foto.");
-    }
-
-    return { cards, skinSeen: skin, skinFromPhoto: !written && Boolean(skin) };
+    return {
+      cards: resultCards,
+      skinSeen: skin,
+      skinFromPhoto: !written && Boolean(skin),
+      ...(imageError ? { imageError } : {}),
+    };
   });
