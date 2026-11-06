@@ -4,6 +4,7 @@ import { DirectoryScreen, HomeScreen, OccasionScreen } from "@/components/atelie
 import { OptionsScreen } from "@/components/atelier/options";
 import { ScannerScreen } from "@/components/atelier/scanner";
 import { StepsScreen } from "@/components/atelier/steps";
+import { FeedbackScreen } from "@/components/atelier/feedback";
 import { referenceLooks, type ReferenceCard, type ReferenceResult } from "@/lib/makeup/imagine";
 import { jpegDataUrl } from "@/lib/makeup/photo";
 import { noteZones, personLine, type PersonBrief } from "@/lib/makeup/profile";
@@ -13,7 +14,7 @@ import { ArrowLeft } from "lucide-react";
 
 const referenceJobs = new Map<string, Promise<ReferenceResult>>();
 
-type View = "home" | "occasion" | "kit" | "scan" | "options" | "steps" | "directory";
+type View = "home" | "occasion" | "kit" | "scan" | "options" | "steps" | "feedback" | "directory";
 
 export function AtelierApp() {
   const [view, setView] = useState<View>("home");
@@ -111,8 +112,7 @@ export function AtelierApp() {
       .catch((error: unknown) => {
         referenceJobs.delete(jobKey);
         if (!alive) return;
-        const message = error instanceof Error ? error.message : "No pude crear las referencias.";
-        setCardsError(message);
+        setCardsError(error instanceof Error ? error.message : "No pude crear las referencias.");
         setCards([
           { id: "piel", title: "Mínimo", line: "Casi sin maquillaje", imageUrl: "" },
           { id: "natural", title: "Natural", line: "Piel luminosa y ligera", imageUrl: "" },
@@ -134,8 +134,7 @@ export function AtelierApp() {
 
   return (
     <div className="app-shell">
-      <header className="sticky top-0 z-20 border-b border-line bg-surface/90 shadow-[0_8px_24px_rgba(131,24,67,0.06)] backdrop-blur-md">
-        <div className="h-0.5 bg-blush" />
+      <header className="sticky top-0 z-20 border-b border-line/50 bg-surface/70 shadow-sm backdrop-blur-md">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
           <button type="button" onClick={() => setView("home")} className="font-display text-xl tracking-wide">
             NEUSTA
@@ -148,15 +147,17 @@ export function AtelierApp() {
                   setView(
                     view === "directory"
                       ? backTo
-                      : view === "steps"
-                        ? "options"
-                        : view === "options"
-                          ? "scan"
-                          : view === "scan"
-                            ? "kit"
-                            : view === "kit"
-                              ? "occasion"
-                              : "home",
+                      : view === "feedback"
+                        ? "steps"
+                        : view === "steps"
+                          ? "options"
+                          : view === "options"
+                            ? "scan"
+                            : view === "scan"
+                              ? "kit"
+                              : view === "kit"
+                                ? "occasion"
+                                : "home",
                   )
                 }
                 className="inline-flex min-h-11 items-center gap-1 px-3 text-sm"
@@ -171,15 +172,16 @@ export function AtelierApp() {
           </nav>
         </div>
       </header>
-      {view === "home" ? (
+
+      {view === "home" && (
         <HomeScreen
           counts={directory?.counts ?? null}
           catalogError={catalogError}
           onStart={() => setView("occasion")}
           onDirectory={openDirectory}
         />
-      ) : null}
-      {view === "occasion" ? (
+      )}
+      {view === "occasion" && (
         <OccasionScreen
           onPick={(id) => {
             setSituation(id);
@@ -187,8 +189,8 @@ export function AtelierApp() {
             setView("kit");
           }}
         />
-      ) : null}
-      {view === "kit" ? (
+      )}
+      {view === "kit" && (
         <KitScreen
           onContinue={(person) => {
             setProfile(person);
@@ -198,8 +200,8 @@ export function AtelierApp() {
             setView("scan");
           }}
         />
-      ) : null}
-      {view === "scan" ? (
+      )}
+      {view === "scan" && (
         <ScannerScreen
           onCapture={(next) => {
             setCapture(next);
@@ -208,23 +210,17 @@ export function AtelierApp() {
             setCardsError(null);
             setChosen(null);
             setSeen({ skin: "", fromPhoto: false });
-            setShot((value) => value + 1);
+            setShot((v) => v + 1);
             setView("options");
           }}
         />
-      ) : null}
-      {view === "options" && situation ? (
+      )}
+      {view === "options" && situation && (
         <OptionsScreen
           situation={situation}
           read={capture?.read ?? null}
           summary={profile ? personLine(profile) : ""}
-          skinLine={
-            profile?.skin
-              ? `Tu piel: ${profile.skin}`
-              : seen.fromPhoto && seen.skin
-                ? `En la foto: ${seen.skin}. No es un diagnóstico.`
-                : ""
-          }
+          skinLine={profile?.skin ? `Tu piel: ${profile.skin}` : seen.skin ? `En la foto: ${seen.skin}` : ""}
           readingSkin={!profile?.skin}
           cards={cards}
           loading={cardsLoading}
@@ -232,32 +228,44 @@ export function AtelierApp() {
           onRetry={() => {
             setCards(null);
             setCardsError(null);
-            setShot((value) => value + 1);
+            setShot((v) => v + 1);
           }}
           onChoose={(card) => {
             setChosen(card);
             setView("steps");
           }}
         />
-      ) : null}
-      {view === "steps" && situation && chosen ? (
-        <StepsScreen
-          situation={situation}
-          card={chosen}
-          plan={plan}
-          error={planError}
-          onRetry={loadPlan}
-          ownedZones={noteZones(profile?.note ?? "")}
-          note={profile?.note ?? ""}
-          skin={profile?.skin || seen.skin}
-          skinFromPhoto={!profile?.skin && seen.fromPhoto}
-          kit={profile?.kit ?? null}
-          summary={profile ? personLine(profile) : ""}
-        />
-      ) : null}
-      {view === "directory" ? (
+      )}
+      {view === "steps" && situation && chosen && (
+        <>
+          <StepsScreen
+            situation={situation}
+            card={chosen}
+            plan={plan}
+            error={planError}
+            onRetry={loadPlan}
+            ownedZones={noteZones(profile?.note ?? "")}
+            note={profile?.note ?? ""}
+            skin={profile?.skin || seen.skin}
+            skinFromPhoto={!profile?.skin && seen.fromPhoto}
+            kit={profile?.kit ?? null}
+            summary={profile ? personLine(profile) : ""}
+          />
+          <div className="mx-auto max-w-md px-5 pb-10">
+            <button
+              type="button"
+              onClick={() => setView("feedback")}
+              className="w-full min-h-12 rounded-full border border-blush/40 bg-blush/10 text-blush"
+            >
+              ¿Qué te pareció este look?
+            </button>
+          </div>
+        </>
+      )}
+      {view === "feedback" && <FeedbackScreen onDone={() => setView("home")} />}
+      {view === "directory" && (
         <DirectoryScreen directory={directory} error={catalogError} onRetry={loadDirectory} />
-      ) : null}
+      )}
     </div>
   );
 }
