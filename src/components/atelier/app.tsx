@@ -108,7 +108,7 @@ export function AtelierApp() {
         if (!alive) return;
         setCards(data.cards);
         setSeen({ skin: data.skinSeen, fromPhoto: data.skinFromPhoto });
-        setCardsError(null);
+        setCardsError(data.imageError ?? null);
       })
       .catch((error: unknown) => {
         referenceJobs.delete(jobKey);
