@@ -20,6 +20,7 @@ export function FeedbackForm({ situation }: { situation?: string }) {
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState("");
   const [state, setState] = useState<"idle" | "sending" | "done" | "error">("idle");
+  const [emailStatus, setEmailStatus] = useState<"sent" | "not-configured" | "failed">("sent");
 
   if (state === "done") {
     return (
@@ -28,7 +29,13 @@ export function FeedbackForm({ situation }: { situation?: string }) {
           Gracias por <em>tu opinión</em>
         </h2>
         <div className="hair" />
-        <p className="text-muted">Nos ayuda a hacer NEUSTA mejor para ti.</p>
+        <p className="text-muted">
+          {emailStatus === "sent"
+            ? "Nos ayuda a hacer NEUSTA mejor para ti."
+            : emailStatus === "not-configured"
+              ? "Tu opinión se guardó, pero el aviso por correo aún no está configurado."
+              : "Tu opinión se guardó, pero no se pudo enviar el aviso por correo."}
+        </p>
       </section>
     );
   }
@@ -37,7 +44,8 @@ export function FeedbackForm({ situation }: { situation?: string }) {
     if (rating < 1) return;
     setState("sending");
     try {
-      await sendFeedback({ data: { rating, comment, situation } });
+      const result = await sendFeedback({ data: { rating, comment, situation } });
+      setEmailStatus(result.emailStatus);
       setState("done");
     } catch {
       setState("error");
@@ -91,7 +99,9 @@ export function FeedbackForm({ situation }: { situation?: string }) {
             No pude enviarla. Inténtalo de nuevo en un momento.
           </p>
         ) : (
-          <p className="mt-3 text-xs text-muted">Anónimo. No guardamos tu foto.</p>
+          <p className="mt-3 text-xs text-muted">
+            Anónima. No pedimos nombre ni correo, ni guardamos tu foto.
+          </p>
         )}
       </div>
     </section>
