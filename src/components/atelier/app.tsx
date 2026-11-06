@@ -116,13 +116,13 @@ export function AtelierApp() {
     };
   }, [view, shot, cards, cardsError, capture, situation, profile]);
 
-  // Con clave de Gemini, cada tarjeta se mejora con una foto editada por IA. Si falla, queda el pintado local.
+  // Mejora solo las tarjetas permitidas por el límite del servidor; conserva el pintado local.
   useEffect(() => {
     if (view !== "options" || !cards || !capture?.read || !situation) return;
     const read = capture.read;
     const owned = noteZones(profile?.note ?? "");
     const jpeg = capture.photo.toDataURL("image/jpeg", 0.85);
-    for (const card of cards) {
+    for (const card of cards.filter((card) => card.generateAi)) {
       const id = `${shot}:${card.id}`;
       if (upgraded.current.has(id)) continue;
       upgraded.current.add(id);
@@ -143,7 +143,7 @@ export function AtelierApp() {
           setCards((prev) => prev?.map((c) => (c.id === card.id ? { ...c, imageUrl: res.imageUrl } : c)) ?? prev);
         })
         .catch((error: unknown) => {
-          if (shotRef.current === shot) setAiNote(error instanceof Error ? error.message.slice(0, 160) : "error");
+          if (shotRef.current === shot) setAiNote(error instanceof Error ? error.message : "error");
         });
     }
   }, [view, cards, capture, situation, profile, shot]);
