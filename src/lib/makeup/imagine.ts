@@ -31,14 +31,14 @@ export type ReferenceResult = {
   limited?: boolean;
 };
 
-// Control de coste
 const MAX_IMAGE_GENERATIONS = Number(process.env.MAX_IMAGE_GENERATIONS ?? 1);
-const ENABLE_IMAGE_GENERATION = !!process.env.XAI_API_KEY && process.env.ENABLE_IMAGE_GEN !== "false";
+const HAS_KEY = !!process.env.XAI_API_KEY;
+const ENABLE_FLAG = process.env.ENABLE_IMAGE_GEN;
+const ENABLE_IMAGE_GENERATION = HAS_KEY && ENABLE_FLAG !== "false";
 
-// Límite por IP (en memoria, se reinicia con cold starts de Vercel)
 const MAX_GENERATIONS_PER_IP = Number(process.env.MAX_GENERATIONS_PER_IP ?? 5);
 const ipUsage = new Map<string, { count: number; resetAt: number }>();
-const WINDOW_MS = 24 * 60 * 60 * 1000; // 24 horas
+const WINDOW_MS = 24 * 60 * 60 * 1000;
 
 function getClientIp(headers: Headers): string {
   const forwarded = headers.get("x-forwarded-for");
@@ -49,16 +49,11 @@ function getClientIp(headers: Headers): string {
 function checkAndIncrementIp(ip: string): boolean {
   const now = Date.now();
   const entry = ipUsage.get(ip);
-
   if (!entry || now > entry.resetAt) {
     ipUsage.set(ip, { count: 1, resetAt: now + WINDOW_MS });
     return true;
   }
-
-  if (entry.count >= MAX_GENERATIONS_PER_IP) {
-    return false;
-  }
-
+  if (entry.count >= MAX_GENERATIONS_PER_IP) return false;
   entry.count += 1;
   return true;
 }
@@ -126,6 +121,7 @@ async function readSkin(photo: string) {
 async function editPortrait(photo: string, prompt: string): Promise<string> {
   const key = process.env.XAI_API_KEY;
   if (!key) throw new Error("Sin clave de imagen.");
+  console.log("[imagine] calling xAI images/generations");
   const response = await fetch("https://api.x.ai/v1/images/generations", {
     method: "POST",
     headers: {
@@ -140,11 +136,12 @@ async function editPortrait(photo: string, prompt: string): Promise<string> {
       n: 1,
     }),
   });
+  const text = await response.text();
+  console.log("[imagine] xAI status", response.status, text.slice(0, 300));
   if (!response.ok) {
-    const detail = await response.text().catch(() => "");
-    throw new Error(detail || "No pude crear la referencia.");
+    throw new Error(text || "No pude crear la referencia.");
   }
-  const payload = (await response.json()) as { data?: { url?: string }[] };
+  const payload = JSON.parse(text) as { data?: { url?: string }[] };
   const url = payload.data?.[0]?.url;
   if (!url) throw new Error("La referencia llegó vacía.");
   return url;
@@ -153,6 +150,8 @@ async function editPortrait(photo: string, prompt: string): Promise<string> {
 export const referenceLooks = createServerFn({ method: "POST" })
   .validator(schema)
   .handler(async ({ data, request }): Promise<ReferenceResult> => {
+    console.log("[imagine] HAS_KEY=", HAS_KEY, "ENABLE_FLAG=", ENABLE_FLAG, "ENABLE=", ENABLE_IMAGE_GENERATION);
+
     const situation = data.situation as SituationId;
     const read: FaceRead = {
       shape: data.shape,
@@ -172,8 +171,8 @@ export const referenceLooks = createServerFn({ method: "POST" })
       kit: { base: "", ojos: "", labios: "", resto: "" },
     };
 
-    // Modo sin generación de imágenes
     if (!ENABLE_IMAGE_GENERATION) {
+      console.log("[imagine] skipping image generation");
       const cards: ReferenceCard[] = options.slice(0, 3).map((option) => ({
         id: option.id,
         title: option.title,
@@ -183,9 +182,9 @@ export const referenceLooks = createServerFn({ method: "POST" })
       return { cards, skinSeen: skin, skinFromPhoto: !written && Boolean(skin) };
     }
 
-    // Límite por IP
     const ip = getClientIp(request.headers);
     const allowed = checkAndIncrementIp(ip);
+    console.log("[imagine] IP=", ip, "allowed=", allowed);
 
     if (!allowed) {
       const cards: ReferenceCard[] = options.slice(0, 3).map((option) => ({
@@ -203,6 +202,7 @@ export const referenceLooks = createServerFn({ method: "POST" })
     }
 
     const toGenerate = options.slice(0, Math.max(1, MAX_IMAGE_GENERATIONS));
+    console.log("[imagine] generating", toGenerate.length, "images");
 
     const settled = await Promise.allSettled(
       toGenerate.map((option) =>
@@ -224,6 +224,8 @@ export const referenceLooks = createServerFn({ method: "POST" })
           line: option.line,
           imageUrl: result.value,
         });
+      } else {
+        console.error("[imagine] failed for", option.id, result.reason);
       }
     });
 
