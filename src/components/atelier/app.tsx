@@ -111,7 +111,14 @@ export function AtelierApp() {
       .catch((error: unknown) => {
         referenceJobs.delete(jobKey);
         if (!alive) return;
-        setCardsError(error instanceof Error ? error.message : "No pude crear las referencias.");
+        const message = error instanceof Error ? error.message : "No pude crear las referencias.";
+        setCardsError(message);
+        // Fallback: cards de texto para no bloquear el flujo
+        setCards([
+          { id: "piel", title: "Mínimo", line: "Casi sin maquillaje", imageUrl: "" },
+          { id: "natural", title: "Natural", line: "Piel luminosa y ligera", imageUrl: "" },
+          { id: "definido", title: "Definido", line: "Más presencia sin cargar", imageUrl: "" },
+        ]);
       })
       .finally(() => {
         if (alive) setCardsLoading(false);
