@@ -49,7 +49,7 @@ export function HomeScreen({
     <main data-testid="home" className="flex flex-col text-center">
       <section className="relative min-h-[100svh] overflow-hidden bg-clay">
         <img
-          src="/studio/olivo.jpg"
+          src="/studio/home-portrait.png"
           alt="Retrato de estudio, una de las referencias de NEUSTA"
           className="absolute inset-0 h-full w-full object-cover object-[center_20%]"
         />
