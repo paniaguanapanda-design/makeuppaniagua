@@ -5,6 +5,7 @@ import { OptionsScreen } from "@/components/atelier/options";
 import { ScannerScreen } from "@/components/atelier/scanner";
 import { StepsScreen } from "@/components/atelier/steps";
 import { FeedbackScreen } from "@/components/atelier/feedback";
+import { InstallBanner } from "@/components/install-banner";
 import { referenceLooks, type ReferenceCard, type ReferenceResult } from "@/lib/makeup/imagine";
 import { jpegDataUrl } from "@/lib/makeup/photo";
 import { noteZones, personLine, type PersonBrief } from "@/lib/makeup/profile";
@@ -266,6 +267,8 @@ export function AtelierApp() {
       {view === "directory" && (
         <DirectoryScreen directory={directory} error={catalogError} onRetry={loadDirectory} />
       )}
+
+      <InstallBanner />
     </div>
   );
 }
