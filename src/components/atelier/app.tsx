@@ -1,4 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { AccountScreen } from "@/components/atelier/account";
+import { InstallPrompt } from "@/components/install-prompt";
+import { authClient, signOut } from "@/lib/auth/client";
 import { KitScreen } from "@/components/atelier/kit";
 import { DirectoryScreen, HomeScreen, OccasionScreen } from "@/components/atelier/screens";
 import { OptionsScreen } from "@/components/atelier/options";
@@ -12,9 +15,11 @@ import { getDirectory, recommendLook } from "@/lib/makeup/server";
 import type { Capture, Directory, LookPlan, SituationId } from "@/lib/makeup/types";
 import { ArrowLeft } from "lucide-react";
 
-type View = "home" | "occasion" | "kit" | "scan" | "options" | "steps" | "directory";
+type View = "account" | "home" | "occasion" | "kit" | "scan" | "options" | "steps" | "directory";
 
 export function AtelierApp() {
+  const { data: session } = authClient.useSession();
+  const [accountError, setAccountError] = useState("");
   const [view, setView] = useState<View>("home");
   const [backTo, setBackTo] = useState<View>("home");
   const [situation, setSituation] = useState<SituationId | null>(null);
@@ -169,7 +174,7 @@ export function AtelierApp() {
     <div className="app-shell">
       <header className="sticky top-0 z-20 border-b border-line bg-surface/90 shadow-[0_8px_24px_rgba(131,24,67,0.06)] backdrop-blur-md">
         <div className="h-0.5 bg-blush" />
-        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
+        <div className="mx-auto flex min-h-16 max-w-6xl flex-wrap items-center justify-between gap-2 px-4 py-2">
           <button
             type="button"
             onClick={() => setView("home")}
@@ -177,7 +182,28 @@ export function AtelierApp() {
           >
             NEUSTA
           </button>
-          <nav className="flex items-center gap-1">
+          <nav
+            aria-label="Navegación principal"
+            className="flex flex-wrap items-center justify-end gap-1"
+          >
+            <InstallPrompt />
+            <button
+              type="button"
+              className="min-h-11 px-2 text-xs sm:text-sm"
+              onClick={async () => {
+                setAccountError("");
+                if (session?.user) {
+                  try {
+                    await signOut();
+                    setView("home");
+                  } catch {
+                    setAccountError("No se pudo cerrar la sesión. Inténtalo de nuevo.");
+                  }
+                } else setView("account");
+              }}
+            >
+              {session?.user ? "Cerrar sesión" : "Iniciar sesión"}
+            </button>
             {view !== "home" ? (
               <button
                 type="button"
@@ -208,6 +234,12 @@ export function AtelierApp() {
           </nav>
         </div>
       </header>
+      {accountError ? (
+        <p role="alert" className="px-4 text-center text-sm text-blush">
+          {accountError}
+        </p>
+      ) : null}
+      {view === "account" ? <AccountScreen onSuccess={() => setView("home")} /> : null}
       {view === "home" ? (
         <HomeScreen onStart={() => setView("occasion")} onDirectory={openDirectory} />
       ) : null}
