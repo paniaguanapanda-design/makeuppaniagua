@@ -7,62 +7,66 @@ type BeforeInstallPromptEvent = Event & {
 
 export function InstallBanner() {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
-  const [show, setShow] = useState(false);
-  const [isIOS, setIsIOS] = useState(false);
   const [dismissed, setDismissed] = useState(false);
+  const [isStandalone, setIsStandalone] = useState(false);
 
   useEffect(() => {
-    const ios = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
-    setIsIOS(ios);
+    const standalone =
+      window.matchMedia("(display-mode: standalone)").matches ||
+      (window.navigator as any).standalone === true;
+    setIsStandalone(standalone);
 
     const handler = (e: Event) => {
       e.preventDefault();
       setDeferredPrompt(e as BeforeInstallPromptEvent);
-      setShow(true);
     };
 
     window.addEventListener("beforeinstallprompt", handler);
-
-    // En iOS no hay beforeinstallprompt, mostramos el banner igual si no está instalada
-    if (ios && !window.matchMedia("(display-mode: standalone)").matches) {
-      setShow(true);
-    }
-
     return () => window.removeEventListener("beforeinstallprompt", handler);
   }, []);
 
-  if (!show || dismissed) return null;
+  // No mostrar si ya está instalada o si el usuario la cerró
+  if (isStandalone || dismissed) return null;
 
   async function install() {
     if (deferredPrompt) {
-      deferredPrompt.prompt();
+      await deferredPrompt.prompt();
       const { outcome } = await deferredPrompt.userChoice;
-      if (outcome === "accepted") setShow(false);
+      if (outcome === "accepted") setDismissed(true);
       setDeferredPrompt(null);
-    } else if (isIOS) {
-      alert("En Safari: toca el botón de compartir (cuadrado con flecha) y luego \u201cAñadir a pantalla de inicio\u201d.");
+    } else {
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+      if (isIOS) {
+        alert(
+          "Para instalar en iPhone:\n1. Toca el botón de compartir (cuadrado con flecha arriba)\n2. Elige \u201cAñadir a pantalla de inicio\u201d",
+        );
+      } else {
+        alert(
+          "Para instalar:\n1. Abre el menú del navegador (los tres puntos)\n2. Elige \u201cAñadir a la pantalla de inicio\u201d o \u201cInstalar app\u201d",
+        );
+      }
     }
   }
 
   return (
-    <div className="fixed bottom-4 left-1/2 z-50 w-[min(92%,380px)] -translate-x-1/2">
-      <div className="flex items-center justify-between gap-3 rounded-2xl border border-white/40 bg-white/80 px-4 py-3 shadow-lg backdrop-blur-md">
-        <div className="text-sm">
-          <p className="font-medium">Instala NEUSTA</p>
+    <div className="fixed bottom-5 left-1/2 z-50 w-[min(94%,400px)] -translate-x-1/2">
+      <div className="flex items-center justify-between gap-3 rounded-2xl border border-white/50 bg-white/90 px-4 py-3.5 shadow-xl backdrop-blur-lg">
+        <div>
+          <p className="text-sm font-semibold">Instala NEUSTA</p>
           <p className="text-xs text-muted">Añádela a tu pantalla de inicio</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex shrink-0 items-center gap-2">
           <button
             type="button"
             onClick={() => setDismissed(true)}
-            className="text-xs text-muted"
+            className="px-2 text-xs text-muted"
           >
             Ahora no
           </button>
           <button
             type="button"
             onClick={install}
-            className="rounded-full bg-ink px-4 py-2 text-sm text-surface"
+            className="rounded-full bg-ink px-5 py-2.5 text-sm font-medium text-surface"
           >
             Instala
           </button>
