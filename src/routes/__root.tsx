@@ -3,7 +3,7 @@ import { AuthProvider } from "@/lib/auth/provider";
 import { PreviewHostBridge } from "@/components/preview-host-bridge";
 import appCss from "../styles.css?url";
 
-const APP_NAME = "ORLA";
+const APP_NAME = "NEUSTA";
 
 export const Route = createRootRoute({
   head: () => ({
@@ -14,7 +14,7 @@ export const Route = createRootRoute({
       {
         name: "description",
         content:
-          "ORLA pregunta edad, gusto y el maquillaje que ya tienes, y propone looks con marcas de droguería.",
+          "NEUSTA pregunta edad, gusto y el maquillaje que ya tienes, y propone looks con marcas de droguería.",
       },
       { name: "theme-color", content: "#FDF2F8" },
     ],
