@@ -44,19 +44,19 @@ const DEPTH_FIT: Record<Depth, string> = {
 const OCCASION: Record<SituationId, string> = {
   dia: "Daytime, in real daylight.",
   oficina: "An office day. Professional and quiet.",
-  entrevista: "A close-up interview. The face should look rested, not styled.",
+  entrevista: "A close-up interview. Use a polished makeup look suitable for an interview.",
   cita: "A date. Warm, but still like her.",
   boda: "A wedding guest in daylight photos.",
-  fiesta: "A night out. Even the lightest option stays wearable.",
+  fiesta: "A night out. Visible evening makeup, with stronger eye and lip definition.",
   fotos: "A portrait session. Skin should look like skin on camera.",
-  editorial: "A studio story. Restraint still reads as fashion.",
+  editorial: "A studio story. Visible fashion makeup with deliberate color and definition.",
 };
 
 const LEVEL: Record<OptionId, { prompt: string; zones: ZoneId[] }> = {
   piel: {
-    zones: ["cejas", "labios"],
+    zones: ["base", "cejas", "rubor", "ojos", "labios"],
     prompt:
-      "Almost no makeup. Bare real skin, a groomed brow and a lip tint that looks like her own mouth. No blush, no eyeshadow, no contour, no highlighter. Very unsaturated.",
+      "NATURAL MAKEUP: apply satin foundation matched to the existing skin, visibly rosy-peach blush blended on the cheeks, softly filled brows, light taupe eyeshadow, a fine brown lash-line eyeliner, black mascara on separated lashes, and clearly visible rose-nude lipstick. Light intensity, but unmistakably wearing makeup rather than bare skin.",
   },
   poco: {
     zones: ["cejas", "rubor", "labios"],
@@ -64,14 +64,14 @@ const LEVEL: Record<OptionId, { prompt: string; zones: ZoneId[] }> = {
       "Very few products. Natural skin, a whisper of sheer blush, a quiet lip. No eyeshadow, no contour, no highlighter. Not saturated.",
   },
   natural: {
-    zones: ["base", "cejas", "rubor", "labios"],
+    zones: ["base", "cejas", "rubor", "ojos", "labios", "iluminador"],
     prompt:
-      "Natural makeup with few products. Sheer skin, unsaturated blush, soft brow, lip close to her coloring. No smoky eye and no heavy pigment.",
+      "SOFT GLAM MAKEUP: apply satin foundation, visible rose blush, defined filled brows, bronze or mauve eyeshadow with a darker outer corner, a clean thin winged eyeliner, black mascara with fuller lashes, subtle cheekbone highlighter, and medium-depth rose lipstick with a satin finish. Medium intensity: visibly more eye definition and richer lip color than the natural look.",
   },
   definido: {
-    zones: ["base", "cejas", "rubor", "labios", "iluminador"],
+    zones: ["base", "cejas", "contorno", "rubor", "ojos", "labios", "iluminador"],
     prompt:
-      "A finished but light look. Makeup is visible and neat, still sheer, not saturated and not glamorous.",
+      "DEFINED GLAM MAKEUP: apply full but realistic satin foundation, sculpted brows, softly blended cheek contour, visible rose blush and cheekbone highlighter, a dimensional brown or plum smoky eyeshadow, precise black winged eyeliner, long defined black mascara lashes, and a clearly pigmented berry-red satin lipstick within the natural lip outline. Strongest intensity: a complete professional makeup transformation, with richer eyes and lips than soft glam, blended rather than theatrical.",
   },
   cargado: {
     zones: ["base", "cejas", "contorno", "rubor", "ojos", "labios"],
@@ -82,80 +82,61 @@ const LEVEL: Record<OptionId, { prompt: string; zones: ZoneId[] }> = {
 
 const COPY: Record<SituationId, { title: string; line: string }[]> = {
   dia: [
-    { title: "Piel sola", line: "Cejas y un labio que parece el suyo." },
+    { title: "Día natural", line: "Labial rosado, rubor y mirada definida." },
     { title: "Dos toques", line: "Rubor mínimo y labio. Nada más." },
-    { title: "Día natural", line: "Piel uniforme, sin verse maquillada." },
-    { title: "Día suave", line: "Se nota, pero no satura." },
+    { title: "Día soft glam", line: "Sombras satinadas, delineado y labios con color." },
+    { title: "Día glam", line: "Ojos ahumados, pestañas y labial intenso." },
     { title: "Día hecho", line: "El más completo del día, todavía ligero." },
   ],
   oficina: [
-    { title: "Sin rastro", line: "Casi no se ve producto." },
+    { title: "Oficina natural", line: "Labial rosado, rubor y mirada definida." },
     { title: "Poco", line: "Labio y un rubor que no llega a la cámara." },
-    { title: "Reunión", line: "Piel en calma y color bajo." },
-    { title: "Pulida", line: "Nítida, sin cara de evento." },
+    { title: "Oficina soft glam", line: "Sombras satinadas, delineado y labios con color." },
+    { title: "Oficina glam", line: "Ojos ahumados, pestañas y labial intenso." },
     { title: "Presente", line: "Lo más hecho que cabe en una oficina." },
   ],
   entrevista: [
-    { title: "Rostro limpio", line: "Que se vea descansada, no peinada." },
+    { title: "Entrevista natural", line: "Labial rosado, rubor y mirada definida." },
     { title: "Labio claro", line: "Un punto de color y la ceja en su sitio." },
-    { title: "Primer plano", line: "La base no se ve." },
-    { title: "Nítida", line: "Se lee en cámara sin saturarse." },
+    { title: "Entrevista soft glam", line: "Sombras satinadas, delineado y labios con color." },
+    { title: "Entrevista glam", line: "Ojos ahumados, pestañas y labial intenso." },
     { title: "Firme", line: "Un poco más de estructura, sin dramatismo." },
   ],
   cita: [
-    { title: "Casi tú", line: "El labio y poco más." },
+    { title: "Cita natural", line: "Labial rosado, rubor y mirada definida." },
     { title: "Calor bajo", line: "Un rubor que sale de la piel." },
-    { title: "Cita natural", line: "Pocos productos, nada cargado." },
-    { title: "Cita", line: "Pómulo y labio, sin ahumar el ojo." },
+    { title: "Cita soft glam", line: "Sombras satinadas, delineado y labios con color." },
+    { title: "Cita glam", line: "Ojos ahumados, pestañas y labial intenso." },
     { title: "Cita de noche", line: "El más hecho, todavía creíble." },
   ],
   boda: [
-    { title: "Piel de día", line: "Casi nada, aguanta la luz." },
+    { title: "Invitada natural", line: "Labial rosado, rubor y mirada definida." },
     { title: "Invitada mínima", line: "Rubor y labio, sin máscara." },
-    { title: "Luz natural", line: "Piel luminosa con pocos productos." },
-    { title: "Invitada", line: "Se ve en la foto sin saturar." },
+    { title: "Invitada soft glam", line: "Sombras satinadas, delineado y labios con color." },
+    { title: "Invitada glam", line: "Ojos ahumados, pestañas y labial intenso." },
     { title: "Foto de grupo", line: "Lo más hecho, sin verse pesado." },
   ],
   fiesta: [
-    { title: "Noche corta", line: "Salir con casi nada encima." },
+    { title: "Fiesta natural", line: "Labial rosado, rubor y mirada definida." },
     { title: "Poco de noche", line: "Labio y rubor. El ojo, limpio." },
-    { title: "Natural de noche", line: "Se nota que saliste, no que te pintaron." },
-    { title: "Noche suave", line: "Ojo marcado sin tapar la mirada." },
+    { title: "Fiesta soft glam", line: "Sombras satinadas, delineado y labios con color." },
+    { title: "Fiesta glam", line: "Ojos ahumados, pestañas y labial intenso." },
     { title: "Fiesta", line: "El más cargado, mezclado en la piel." },
   ],
   fotos: [
-    { title: "Piel", line: "La cámara ve la cara, no el maquillaje." },
+    { title: "Retrato natural", line: "Labial rosado, rubor y mirada definida." },
     { title: "Poco", line: "Un toque de color y la ceja." },
-    { title: "Piel de cámara", line: "Uniforme, con pocos productos." },
-    { title: "Retrato suave", line: "Luz en el hueso, color bajo." },
+    { title: "Retrato soft glam", line: "Sombras satinadas, delineado y labios con color." },
+    { title: "Retrato glam", line: "Ojos ahumados, pestañas y labial intenso." },
     { title: "Retrato", line: "Contraste suficiente, sin máscara." },
   ],
   editorial: [
-    { title: "Casi nada", line: "La cara manda. El producto, no." },
+    { title: "Editorial natural", line: "Labial rosado, rubor y mirada definida." },
     { title: "Un labio", line: "Pocos productos, un solo acento." },
-    { title: "Piel quieta", line: "Natural, con el color medido." },
-    { title: "Estudio suave", line: "Hecho, pero no saturado." },
+    { title: "Editorial soft glam", line: "Sombras satinadas, delineado y labios con color." },
+    { title: "Editorial glam", line: "Ojos ahumados, pestañas y labial intenso." },
     { title: "Contraste", line: "El más gráfico, todavía real." },
   ],
-};
-
-const ZONE_ORDER: ZoneId[] = [
-  "labios",
-  "cejas",
-  "rubor",
-  "base",
-  "iluminador",
-  "ojos",
-  "contorno",
-  "fijador",
-];
-
-const CAP: Record<OptionId, number> = {
-  piel: 2,
-  poco: 3,
-  natural: 4,
-  definido: 6,
-  cargado: 8,
 };
 
 export function optionsFor(situation: SituationId): LookOption[] {
@@ -163,19 +144,12 @@ export function optionsFor(situation: SituationId): LookOption[] {
     if (id === "poco" || id === "cargado") return [];
     const copy = COPY[situation][index];
     const level = LEVEL[id];
-    const zones = level.zones.filter(
-      (zone) => zone !== "ojos" || situation === "fiesta" || situation === "editorial",
-    );
     return {
       id,
       title: copy?.title ?? id,
       line: copy?.line ?? "",
       prompt: `${OCCASION[situation]} ${level.prompt}`,
-      zones:
-        id === "definido" &&
-        (situation === "fiesta" || situation === "editorial" || situation === "cita")
-          ? [...zones, "ojos"]
-          : zones,
+      zones: level.zones,
     };
   });
 }
@@ -184,12 +158,9 @@ export function optionById(situation: SituationId, id: OptionId) {
   return optionsFor(situation).find((item) => item.id === id) ?? optionsFor(situation)[1];
 }
 
-export function visibleZones(option: LookOption, owned: ZoneId[]) {
-  if (!owned.length) return option.zones;
-  const have = new Set(owned);
-  const fit = option.zones.filter((zone) => have.has(zone));
-  if (fit.length) return fit;
-  return ZONE_ORDER.filter((zone) => have.has(zone)).slice(0, CAP[option.id]);
+/** The kit says what the user owns, not which makeup areas must stay bare. */
+export function visibleZones(option: LookOption, _owned: ZoneId[]) {
+  return option.zones;
 }
 
 export function referencePrompt(
@@ -204,15 +175,18 @@ export function referencePrompt(
     "Edit this photograph. Keep the exact same person: same face, age, identity, hair, expression, pose, clothing and background.",
     "Do not replace them with another model. Do not paste makeup on top like a filter or face paint.",
     "Show a real photograph of this person after a makeup artist finished the look, blended into their skin.",
-    "The makeup is affordable and everyday, not a luxury campaign.",
+    "Apply actual cosmetic color to the lips, cheeks and eyes. This is a virtual makeup try-on, NOT a skin retouch, beauty filter or smoothing task. A merely softened or unchanged face is not a completed makeup look.",
     SHAPE_FIT[read.shape],
     TONE_FIT[read.undertone],
     DEPTH_FIT[read.depth],
     option.prompt,
     person ? personPrompt(person) : "",
-    `Makeup is visible only here: ${zones.join(", ") || "nowhere"}. Every other area stays bare skin.`,
-    "Keep the color unsaturated unless this is the fullest option, and even then do not oversaturate.",
-    "Preserve pores, fine lines and natural skin texture. No clown makeup, theatrical face paint, harsh outlines, oversized lips, plastic skin or beauty filter.",
+    `Complete all these makeup areas: ${zones.join(", ")}. Match cosmetic pigments to the original skin tone; do not lighten or recolor the skin itself.`,
+    owned.length
+      ? `Products already owned: ${owned.join(", ")}. These are available products, not restrictions: still complete the whole makeup look.`
+      : "",
+    "Make the makeup clearly visible at portrait size: distinct lipstick color, blush on cheeks, eyeshadow, eyeliner and mascara. Keep edges professionally blended, not painted patches.",
+    "Preserve pores, fine lines and natural skin texture. Do not blur, airbrush, smooth, de-age or reshape the face. No clown makeup, theatrical face paint, harsh outlines, oversized lips, plastic skin or beauty filter.",
     "No text, no watermark, no extra people.",
   ]
     .filter(Boolean)

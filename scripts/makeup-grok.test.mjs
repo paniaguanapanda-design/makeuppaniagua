@@ -174,3 +174,36 @@ test("pending and failed cards cannot be chosen, successful photos can", async (
   assert.match(html, /Grok está generando/);
   assert.match(html, /role="alert"/);
 });
+
+test("each real edit requests complete makeup, not just retouching, even with a partial kit", async () => {
+  const calls = [];
+  const load = harness({ XAI_API_KEY: "test-only" }, async (_url, init) => {
+    calls.push(JSON.parse(init.body));
+    return Response.json({ data: [{ b64_json: "Z3Jvaw==" }] });
+  });
+  const refs = load("lib/makeup/references.ts");
+  const options = refs.optionsFor("boda");
+  for (const option of options) {
+    assert.ok(option.zones.includes("ojos"));
+    assert.ok(option.zones.includes("rubor"));
+    assert.ok(option.zones.includes("labios"));
+    assert.equal(refs.visibleZones(option, ["base"]).length, option.zones.length);
+    const input = request(option.id);
+    input.data.owned = ["base"];
+    await load("lib/makeup/ai-look.ts").aiLook(input);
+  }
+  assert.equal(new Set(calls.map((c) => c.prompt)).size, 3);
+  for (const call of calls) {
+    assert.match(call.prompt, /lipstick/i);
+    assert.match(call.prompt, /eyeshadow/i);
+    assert.match(call.prompt, /mascara/i);
+    assert.match(call.prompt, /blush/i);
+    assert.match(call.prompt, /NOT a skin retouch/);
+    assert.match(call.prompt, /Do not blur, airbrush, smooth/);
+    assert.match(call.prompt, /not restrictions/);
+    assert.doesNotMatch(
+      call.prompt,
+      /Almost no makeup|No blush|No eyeshadow|Very unsaturated|Every other area stays bare skin/,
+    );
+  }
+});
