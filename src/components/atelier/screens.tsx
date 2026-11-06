@@ -48,79 +48,50 @@ export function HomeScreen({
   return (
     <main data-testid="home" className="mx-auto flex max-w-6xl flex-col px-5 pb-12 pt-7">
       <p className="text-[11px] font-medium tracking-[0.18em] text-blush uppercase">
-        Asesoría de maquillaje · A tu manera
+        Asesoría de maquillaje
       </p>
-      <h1 className="mt-4 max-w-[20ch] text-[2.65rem] leading-[1.04] tracking-[-0.045em]">
-        Primero la ocasión. Después, tu rostro.
+      <h1 className="mt-4 max-w-[18ch] text-[2.75rem] leading-[1.02] tracking-[-0.045em]">
+        Tu look, a tu medida
       </h1>
-      <p className="mt-4 max-w-xl text-base leading-7 text-muted">
-        Un look pensado para ti: lo que te gusta, tu piel y lo que ya tienes.
+      <p className="mt-3 max-w-xl text-base leading-7 text-muted">
+        Sube una foto y elige la ocasión. Te mostramos 3 opciones pensadas para ti.
       </p>
 
       <figure className="home-portrait relative mt-6 overflow-hidden rounded-[1.6rem]">
         <img
           src="/studio/olivo.jpg"
-          alt="Retrato de estudio, una de las referencias de ORLA"
+          alt="Retrato de estudio"
           className="h-full w-full object-cover object-[center_38%]"
         />
-        <figcaption className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-3 bg-gradient-to-t from-black/60 to-transparent px-4 pb-4 pt-12 text-white">
-          <span>
-            <span className="block text-[10px] tracking-[0.16em] uppercase">Tu piel · Tu estilo</span>
-            <span className="mt-1 block font-display text-xl">Belleza sin fórmulas</span>
-          </span>
-          <span className="mb-1 rounded-full border border-white/60 px-3 py-1 text-[10px] tracking-wide">
-            ORLA STUDIO
-          </span>
-        </figcaption>
       </figure>
 
-      <div className="mt-5 flex flex-col gap-3">
+      <div className="mt-6">
         <button
           type="button"
           data-testid="start"
           onClick={onStart}
-          className="flex min-h-12 items-center justify-between rounded-2xl bg-ink px-5 text-left text-surface"
+          className="flex min-h-14 w-full items-center justify-between rounded-2xl bg-ink px-6 text-left text-lg text-surface"
         >
-          <span>Empezar mi look</span>
+          <span>Empezar</span>
           <ArrowRight className="size-5" aria-hidden="true" />
         </button>
-        <button
-          type="button"
-          onClick={onDirectory}
-          className="min-h-12 rounded-2xl border border-line bg-surface px-5 text-left"
-        >
-          Explorar casas y estilistas
-        </button>
       </div>
-      <p className="mt-4 text-xs tracking-wide text-muted tabular-nums">
+
+      <button
+        type="button"
+        onClick={onDirectory}
+        className="mt-4 text-sm text-muted underline underline-offset-4"
+      >
+        Explorar casas y estilistas
+      </button>
+
+      <p className="mt-6 text-xs tracking-wide text-muted tabular-nums">
         {counts
           ? `${counts.brands} casas · ${counts.stylists} estilistas · ${counts.products} productos`
           : catalogError
             ? catalogError
             : "Abriendo el catálogo"}
       </p>
-      <ol className="mt-7 divide-y divide-line border-y border-line">
-        {[
-          ["01", "La ocasión", "Día, cita, boda o cualquier plan."],
-          ["02", "Tus palabras", "Tu gusto, tu piel y lo que ya usas."],
-          ["03", "Tu referencia", "Tres opciones; tú eliges los pasos."],
-        ].map(([index, title, line]) => (
-          <li key={index} className="flex items-start gap-4 py-4">
-            <span className="pt-0.5 text-xs font-medium tracking-widest text-blush">{index}</span>
-            <span>
-              <span className="block font-display text-xl">{title}</span>
-              <span className="mt-1 block text-sm text-muted">{line}</span>
-            </span>
-          </li>
-        ))}
-      </ol>
-      <a
-        href="/orla-con-voz.mp4?v=4"
-        download="ORLA-video.mp4"
-        className="mt-5 inline-flex min-h-11 items-center text-sm text-muted underline decoration-line underline-offset-4"
-      >
-        Ver y descargar el vídeo de ORLA
-      </a>
     </main>
   );
 }
@@ -128,10 +99,10 @@ export function HomeScreen({
 export function OccasionScreen({ onPick }: { onPick: (id: SituationId) => void }) {
   return (
     <div className="mx-auto max-w-6xl px-4 pb-16 pt-8">
-      <p className="text-xs tracking-widest text-muted uppercase">Paso 1</p>
-      <h1 className="mt-3 max-w-2xl text-4xl sm:text-6xl">¿Para qué es el maquillaje?</h1>
-      <p className="mt-4 max-w-xl text-muted">
-        Después preguntas qué productos ya tienes. La cámara viene al final.
+      <p className="text-xs tracking-widest text-muted uppercase">Paso 1 de 3</p>
+      <h1 className="mt-3 max-w-2xl text-4xl sm:text-5xl">¿Para qué ocasión?</h1>
+      <p className="mt-3 max-w-xl text-muted">
+        Elige una. Podrás cambiarla después.
       </p>
       <div className="mt-8 grid grid-cols-2 gap-3 lg:grid-cols-4">
         {SITUATIONS.map((item) => {
@@ -142,7 +113,7 @@ export function OccasionScreen({ onPick }: { onPick: (id: SituationId) => void }
               type="button"
               data-testid={`occasion-${item.id}`}
               onClick={() => onPick(item.id)}
-              className="soft-card flex min-h-36 flex-col items-start justify-between p-4 text-left transition duration-200 hover:-translate-y-0.5 hover:border-blush"
+              className="soft-card flex min-h-36 flex-col items-start justify-between p-4 text-left transition duration-200 hover:-translate-y-0.5 hover:border-blush focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blush"
             >
               <Icon className="size-5 text-blush" strokeWidth={1.75} aria-hidden="true" />
               <span className="mt-6 block font-display text-2xl">{item.label}</span>

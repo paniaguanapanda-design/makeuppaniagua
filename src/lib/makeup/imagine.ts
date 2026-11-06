@@ -30,6 +30,10 @@ export type ReferenceResult = {
   skinFromPhoto: boolean;
 };
 
+// Control de coste: por defecto genera solo 1 imagen real
+const MAX_IMAGE_GENERATIONS = Number(process.env.MAX_IMAGE_GENERATIONS ?? 1);
+const ENABLE_IMAGE_GENERATION = !!process.env.XAI_API_KEY && process.env.ENABLE_IMAGE_GEN !== "false";
+
 const SKIN_ASK =
   "Mira solo la piel de este rostro, para maquillaje. No diagnostiques ni des consejos médicos. " +
   "Si se ve con claridad, responde en una frase corta en español, solo con lo visible entre: ojeras, granos, brillo, sequedad, rojeces, manchas. " +
@@ -139,27 +143,57 @@ export const referenceLooks = createServerFn({ method: "POST" })
       skinFromPhoto: !written && Boolean(skin),
       kit: { base: "", ojos: "", labios: "", resto: "" },
     };
+
+    // Modo sin generación de imágenes (más barato para feedback)
+    if (!ENABLE_IMAGE_GENERATION) {
+      const cards: ReferenceCard[] = options.slice(0, 3).map((option) => ({
+        id: option.id,
+        title: option.title,
+        line: option.line,
+        imageUrl: "",
+      }));
+      return { cards, skinSeen: skin, skinFromPhoto: !written && Boolean(skin) };
+    }
+
+    const toGenerate = options.slice(0, Math.max(1, MAX_IMAGE_GENERATIONS));
+
     const settled = await Promise.allSettled(
-      options.map((option) =>
+      toGenerate.map((option) =>
         editPortrait(
           data.photo,
           referencePrompt(situation, option, read, data.owned as ZoneId[], person),
         ),
       ),
     );
+
     const cards: ReferenceCard[] = [];
     settled.forEach((result, index) => {
-      const option = options[index];
-      if (!option || result.status !== "fulfilled") return;
+      const option = toGenerate[index];
+      if (!option) return;
+      if (result.status === "fulfilled") {
+        cards.push({
+          id: option.id,
+          title: option.title,
+          line: option.line,
+          imageUrl: result.value,
+        });
+      }
+    });
+
+    // Completa hasta 3 opciones aunque fallen las imágenes
+    for (let i = cards.length; i < 3 && i < options.length; i++) {
+      const option = options[i];
       cards.push({
         id: option.id,
         title: option.title,
         line: option.line,
-        imageUrl: result.value,
+        imageUrl: "",
       });
-    });
-    if (!cards.length) {
-      throw new Error("No pude ajustar el maquillaje a este rostro. Prueba otra vez.");
     }
+
+    if (!cards.length) {
+      throw new Error("No pude generar referencias. Prueba con otra foto.");
+    }
+
     return { cards, skinSeen: skin, skinFromPhoto: !written && Boolean(skin) };
   });
