@@ -4,6 +4,8 @@ import { PreviewHostBridge } from "@/components/preview-host-bridge";
 import appCss from "../styles.css?url";
 
 const APP_NAME = "NEUSTA";
+const DESCRIPTION = "Tu look, a tu medida. Asesoría de maquillaje personalizada.";
+const OG_IMAGE = "https://neusta.vercel.app/og.jpg";
 
 export const Route = createRootRoute({
   head: () => ({
@@ -11,15 +13,27 @@ export const Route = createRootRoute({
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1, viewport-fit=cover" },
       { title: APP_NAME },
-      {
-        name: "description",
-        content: "NEUSTA: tu look, a tu medida. Asesoría de maquillaje personalizada.",
-      },
+      { name: "description", content: DESCRIPTION },
       { name: "theme-color", content: "#faf7f2" },
       { name: "mobile-web-app-capable", content: "yes" },
       { name: "apple-mobile-web-app-capable", content: "yes" },
       { name: "apple-mobile-web-app-status-bar-style", content: "default" },
       { name: "apple-mobile-web-app-title", content: APP_NAME },
+
+      // Open Graph (WhatsApp, Facebook, etc.)
+      { property: "og:title", content: APP_NAME },
+      { property: "og:description", content: DESCRIPTION },
+      { property: "og:image", content: OG_IMAGE },
+      { property: "og:image:width", content: "1200" },
+      { property: "og:image:height", content: "630" },
+      { property: "og:type", content: "website" },
+      { property: "og:url", content: "https://neusta.vercel.app" },
+
+      // Twitter
+      { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:title", content: APP_NAME },
+      { name: "twitter:description", content: DESCRIPTION },
+      { name: "twitter:image", content: OG_IMAGE },
     ],
     links: [
       { rel: "icon", type: "image/png", sizes: "32x32", href: "/icon-192.png" },
