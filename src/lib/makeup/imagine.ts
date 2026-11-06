@@ -94,24 +94,27 @@ async function readSkin(photo: string) {
 async function editPortrait(photo: string, prompt: string): Promise<string> {
   const key = process.env.XAI_API_KEY;
   if (!key) throw new Error("Sin XAI_API_KEY");
-  console.log("[imagine] calling xAI images/generations");
-  const response = await fetch("https://api.x.ai/v1/images/generations", {
+
+  console.log("[imagine] calling /v1/images/edits");
+  const response = await fetch("https://api.x.ai/v1/images/edits", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${key}`,
     },
-    signal: AbortSignal.timeout(55_000),
+    signal: AbortSignal.timeout(60_000),
     body: JSON.stringify({
-      model: "grok-2-image",
+      model: "grok-imagine-image-2.0",
       prompt,
-      image: photo,
+      image: { url: photo, type: "image_url" },
       n: 1,
     }),
   });
+
   const text = await response.text();
-  console.log("[imagine] status", response.status, text.slice(0, 400));
+  console.log("[imagine] status", response.status, text.slice(0, 500));
   if (!response.ok) throw new Error(text || "Error de xAI");
+
   const payload = JSON.parse(text) as { data?: { url?: string }[] };
   const url = payload.data?.[0]?.url;
   if (!url) throw new Error("Sin URL de imagen");
@@ -145,7 +148,6 @@ export const referenceLooks = createServerFn({ method: "POST" })
       kit: { base: "", ojos: "", labios: "", resto: "" },
     };
 
-    // Solo genera si hay key y no está desactivado explícitamente
     if (!key || flag === "false") {
       console.log("[imagine] skipping — no key or disabled");
       const cards: ReferenceCard[] = options.slice(0, 3).map((option) => ({
