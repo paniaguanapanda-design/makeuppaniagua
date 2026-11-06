@@ -31,33 +31,6 @@ export type ReferenceResult = {
   limited?: boolean;
 };
 
-const MAX_IMAGE_GENERATIONS = Number(process.env.MAX_IMAGE_GENERATIONS ?? 1);
-const HAS_KEY = !!process.env.XAI_API_KEY;
-const ENABLE_FLAG = process.env.ENABLE_IMAGE_GEN;
-const ENABLE_IMAGE_GENERATION = HAS_KEY && ENABLE_FLAG !== "false";
-
-const MAX_GENERATIONS_PER_IP = Number(process.env.MAX_GENERATIONS_PER_IP ?? 5);
-const ipUsage = new Map<string, { count: number; resetAt: number }>();
-const WINDOW_MS = 24 * 60 * 60 * 1000;
-
-function getClientIp(headers: Headers): string {
-  const forwarded = headers.get("x-forwarded-for");
-  if (forwarded) return forwarded.split(",")[0].trim();
-  return headers.get("x-real-ip") || "unknown";
-}
-
-function checkAndIncrementIp(ip: string): boolean {
-  const now = Date.now();
-  const entry = ipUsage.get(ip);
-  if (!entry || now > entry.resetAt) {
-    ipUsage.set(ip, { count: 1, resetAt: now + WINDOW_MS });
-    return true;
-  }
-  if (entry.count >= MAX_GENERATIONS_PER_IP) return false;
-  entry.count += 1;
-  return true;
-}
-
 const SKIN_ASK =
   "Mira solo la piel de este rostro, para maquillaje. No diagnostiques ni des consejos médicos. " +
   "Si se ve con claridad, responde en una frase corta en español, solo con lo visible entre: ojeras, granos, brillo, sequedad, rojeces, manchas. " +
@@ -120,7 +93,7 @@ async function readSkin(photo: string) {
 
 async function editPortrait(photo: string, prompt: string): Promise<string> {
   const key = process.env.XAI_API_KEY;
-  if (!key) throw new Error("Sin clave de imagen.");
+  if (!key) throw new Error("Sin XAI_API_KEY");
   console.log("[imagine] calling xAI images/generations");
   const response = await fetch("https://api.x.ai/v1/images/generations", {
     method: "POST",
@@ -137,20 +110,21 @@ async function editPortrait(photo: string, prompt: string): Promise<string> {
     }),
   });
   const text = await response.text();
-  console.log("[imagine] xAI status", response.status, text.slice(0, 300));
-  if (!response.ok) {
-    throw new Error(text || "No pude crear la referencia.");
-  }
+  console.log("[imagine] status", response.status, text.slice(0, 400));
+  if (!response.ok) throw new Error(text || "Error de xAI");
   const payload = JSON.parse(text) as { data?: { url?: string }[] };
   const url = payload.data?.[0]?.url;
-  if (!url) throw new Error("La referencia llegó vacía.");
+  if (!url) throw new Error("Sin URL de imagen");
   return url;
 }
 
 export const referenceLooks = createServerFn({ method: "POST" })
   .validator(schema)
-  .handler(async ({ data, request }): Promise<ReferenceResult> => {
-    console.log("[imagine] HAS_KEY=", HAS_KEY, "ENABLE_FLAG=", ENABLE_FLAG, "ENABLE=", ENABLE_IMAGE_GENERATION);
+  .handler(async ({ data }): Promise<ReferenceResult> => {
+    const key = process.env.XAI_API_KEY;
+    const flag = process.env.ENABLE_IMAGE_GEN;
+    const max = Number(process.env.MAX_IMAGE_GENERATIONS ?? 1);
+    console.log("[imagine] key=", !!key, "flag=", flag, "max=", max);
 
     const situation = data.situation as SituationId;
     const read: FaceRead = {
@@ -171,8 +145,9 @@ export const referenceLooks = createServerFn({ method: "POST" })
       kit: { base: "", ojos: "", labios: "", resto: "" },
     };
 
-    if (!ENABLE_IMAGE_GENERATION) {
-      console.log("[imagine] skipping image generation");
+    // Solo genera si hay key y no está desactivado explícitamente
+    if (!key || flag === "false") {
+      console.log("[imagine] skipping — no key or disabled");
       const cards: ReferenceCard[] = options.slice(0, 3).map((option) => ({
         id: option.id,
         title: option.title,
@@ -182,27 +157,8 @@ export const referenceLooks = createServerFn({ method: "POST" })
       return { cards, skinSeen: skin, skinFromPhoto: !written && Boolean(skin) };
     }
 
-    const ip = getClientIp(request.headers);
-    const allowed = checkAndIncrementIp(ip);
-    console.log("[imagine] IP=", ip, "allowed=", allowed);
-
-    if (!allowed) {
-      const cards: ReferenceCard[] = options.slice(0, 3).map((option) => ({
-        id: option.id,
-        title: option.title,
-        line: option.line,
-        imageUrl: "",
-      }));
-      return {
-        cards,
-        skinSeen: skin,
-        skinFromPhoto: !written && Boolean(skin),
-        limited: true,
-      };
-    }
-
-    const toGenerate = options.slice(0, Math.max(1, MAX_IMAGE_GENERATIONS));
-    console.log("[imagine] generating", toGenerate.length, "images");
+    const toGenerate = options.slice(0, Math.max(1, max));
+    console.log("[imagine] generating", toGenerate.length);
 
     const settled = await Promise.allSettled(
       toGenerate.map((option) =>
@@ -225,7 +181,7 @@ export const referenceLooks = createServerFn({ method: "POST" })
           imageUrl: result.value,
         });
       } else {
-        console.error("[imagine] failed for", option.id, result.reason);
+        console.error("[imagine] fail", option.id, String(result.reason));
       }
     });
 
