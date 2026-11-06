@@ -39,26 +39,28 @@ export function HomeScreen({
   onDirectory: () => void;
 }) {
   return (
-    <main data-testid="home" className="mx-auto flex max-w-md flex-col px-5 pb-12 pt-6">
-      <figure className="relative overflow-hidden rounded-[1.75rem]">
+    <main data-testid="home" className="mx-auto flex max-w-md flex-col px-5 pb-16 pt-4">
+      <figure className="relative mx-auto w-full overflow-hidden rounded-[1.75rem]">
         <img
           src="/studio/olivo.jpg"
           alt=""
-          className="h-72 w-full object-cover object-center"
+          className="h-80 w-full object-cover object-[center_30%]"
         />
-        <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-[#faf7f2] to-transparent" />
+        <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-[#faf7f2] via-[#faf7f2]/70 to-transparent" />
       </figure>
 
-      <div className="-mt-16 px-2">
-        <h1 className="text-center text-5xl leading-[0.95] tracking-tight">
+      <div className="relative z-10 -mt-20 px-4 text-center">
+        <h1 className="font-display text-[2.75rem] leading-[1.05] tracking-tight text-ink sm:text-5xl">
           Tu look,<br />a tu medida
         </h1>
-        <div className="mx-auto mt-4 flex items-center justify-center gap-3 text-blush">
-          <span className="h-px w-8 bg-blush/40" />
-          <span className="text-lg">♡</span>
-          <span className="h-px w-8 bg-blush/40" />
+
+        <div className="mx-auto mt-5 flex items-center justify-center gap-3 text-blush">
+          <span className="h-px w-10 bg-blush/40" />
+          <span className="text-xl">♡</span>
+          <span className="h-px w-10 bg-blush/40" />
         </div>
-        <p className="mt-4 text-center text-muted">
+
+        <p className="mt-4 text-base text-muted">
           Sube una foto y elige la ocasión
         </p>
 
