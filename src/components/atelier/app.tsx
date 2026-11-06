@@ -1,3 +1,4 @@
+import { FeedbackForm } from "@/components/atelier/feedback";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AccountScreen } from "@/components/atelier/account";
 import { InstallPrompt } from "@/components/install-prompt";
@@ -15,7 +16,8 @@ import { getDirectory, recommendLook } from "@/lib/makeup/server";
 import type { Capture, Directory, LookPlan, SituationId } from "@/lib/makeup/types";
 import { ArrowLeft } from "lucide-react";
 
-type View = "account" | "home" | "occasion" | "kit" | "scan" | "options" | "steps" | "directory";
+type View =
+  "feedback" | "account" | "home" | "occasion" | "kit" | "scan" | "options" | "steps" | "directory";
 
 export function AtelierApp() {
   const { data: session } = authClient.useSession();
@@ -228,6 +230,13 @@ export function AtelierApp() {
                 Volver
               </button>
             ) : null}
+            <button
+              type="button"
+              onClick={() => setView("feedback")}
+              className="min-h-11 px-3 text-sm"
+            >
+              Dejar una opinión
+            </button>
             <button type="button" onClick={openDirectory} className="min-h-11 px-3 text-sm">
               Directorio
             </button>
@@ -238,6 +247,11 @@ export function AtelierApp() {
         <p role="alert" className="px-4 text-center text-sm text-blush">
           {accountError}
         </p>
+      ) : null}
+      {view === "feedback" ? (
+        <div className="mx-auto max-w-xl px-4 pb-16">
+          <FeedbackForm />
+        </div>
       ) : null}
       {view === "account" ? <AccountScreen onSuccess={() => setView("home")} /> : null}
       {view === "home" ? (

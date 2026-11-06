@@ -1,12 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
-import { z } from "zod";
 import { getSql } from "@/lib/db";
 
-const feedbackSchema = z.object({
-  rating: z.number().int().min(1).max(5),
-  comment: z.string().trim().max(1000),
-  situation: z.string().max(40).optional(),
-});
+import { feedbackSchema, REVIEW_CONSENT_TEXT, REVIEW_CONSENT_VERSION } from "./feedback-schema";
 
 type FeedbackEmailStatus = "sent" | "not-configured" | "failed";
 
@@ -15,11 +10,19 @@ async function sendFeedbackEmail({
   rating,
   comment,
   situation,
+  displayName,
+  contactEmail,
+  publicationConsent,
+  hasPhoto,
 }: {
   id: string;
   rating: number;
   comment: string;
   situation?: string;
+  displayName: string;
+  contactEmail?: string;
+  publicationConsent: boolean;
+  hasPhoto: boolean;
 }): Promise<FeedbackEmailStatus> {
   const apiKey = process.env.RESEND_API_KEY?.trim();
   const to = process.env.FEEDBACK_EMAIL_TO?.trim();
@@ -38,9 +41,17 @@ async function sendFeedbackEmail({
       body: JSON.stringify({
         from,
         to: [to],
-        subject: "Nueva opinión anónima para NEUSTA",
+        subject: "Nueva opinión para NEUSTA",
         text: [
-          "Nueva opinión anónima para NEUSTA",
+          "Nueva opinión para NEUSTA",
+          `Referencia: ${id}`,
+          `Nombre: ${displayName || "No indicado"}`,
+          `Correo privado (no publicar): ${contactEmail || "No indicado"}`,
+          `Publicación: ${publicationConsent ? "PENDIENTE de revisión; autorización recibida" : "PRIVADA; sin autorización"}`,
+          `Foto opcional: ${hasPhoto ? "Guardada para revisión; no se adjunta al correo" : "No adjunta"}`,
+          ...(publicationConsent
+            ? [`Autorización (${REVIEW_CONSENT_VERSION}): ${REVIEW_CONSENT_TEXT}`]
+            : []),
           `Puntuación: ${rating}/5`,
           `Ocasión: ${situation || "No indicada"}`,
           "Comentario:",
@@ -65,14 +76,24 @@ async function sendFeedbackEmail({
   return "sent";
 }
 
-/** Guarda una opinión sin solicitar datos identificativos ni enviar fotos. */
+/** Siempre privada o pendiente: ninguna opinión se publica automáticamente. */
 export const sendFeedback = createServerFn({ method: "POST" })
   .validator(feedbackSchema)
   .handler(async ({ data }): Promise<{ ok: true; emailStatus: FeedbackEmailStatus }> => {
     const sql = await getSql();
     const [opinion] = await sql<{ id: string | number }>`
-      insert into opiniones (rating, comment, situation)
-      values (${data.rating}, ${data.comment}, ${data.situation ?? null})
+      insert into opiniones (
+        rating, comment, situation, display_name, contact_email, photo_data_url,
+        publication_consent, consent_at, consent_version, consent_text, publication_status
+      )
+      values (
+        ${data.rating}, ${data.comment}, ${data.situation ?? null},
+        ${data.displayName || null}, ${data.contactEmail || null}, ${data.photo ?? null},
+        ${data.publicationConsent}, case when ${data.publicationConsent} then now() else null end,
+        ${data.publicationConsent ? REVIEW_CONSENT_VERSION : null},
+        ${data.publicationConsent ? REVIEW_CONSENT_TEXT : null},
+        ${data.publicationConsent ? "pending" : "private"}
+      )
       returning id
     `;
     if (!opinion) throw new Error("No se pudo guardar la opinión.");
@@ -81,6 +102,10 @@ export const sendFeedback = createServerFn({ method: "POST" })
       rating: data.rating,
       comment: data.comment,
       situation: data.situation,
+      displayName: data.displayName,
+      contactEmail: data.contactEmail,
+      publicationConsent: data.publicationConsent,
+      hasPhoto: Boolean(data.photo),
     });
     return { ok: true, emailStatus };
   });
