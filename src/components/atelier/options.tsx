@@ -126,13 +126,10 @@ export function OptionsScreen({
             : null}
       </div>
       {cards?.some((item) => item.error) ? (
-        <button
-          type="button"
-          onClick={onRetry}
-          className="mt-4 min-h-11 rounded-full bg-ink px-5 text-surface"
-        >
-          Reintentar solo los looks fallidos
-        </button>
+        <p role="alert" className="mt-4 text-sm">
+          Esta solicitud ya consumió su plaza. Vuelve al inicio para comenzar otra prueba si te
+          queda crédito.
+        </p>
       ) : null}
       <p className="mt-6 text-center text-sm text-muted">
         NEUSTA no guarda tu foto. Se envía a xAI para generar los looks.

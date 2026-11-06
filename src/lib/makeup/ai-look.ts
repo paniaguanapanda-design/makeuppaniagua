@@ -15,6 +15,7 @@ const schema = z.object({
     "fotos",
     "editorial",
   ]),
+  trialId: z.string().uuid(),
   optionId: z.enum(["piel", "poco", "natural", "definido", "cargado"]),
   undertone: z.enum(["calido", "frio", "neutro"]),
   depth: z.enum(["clara", "media", "profunda"]),
@@ -47,6 +48,12 @@ export const aiLook = createServerFn({ method: "POST" })
       { shape: data.shape, undertone: data.undertone, depth: data.depth, skinHex: "#000000" },
       data.owned as ZoneId[],
     );
+    const { creditContext } = await import("./credit.server");
+    const { claimGeneration } = await import("./credit-store.server");
+    const { sql, userId } = await creditContext();
+    // Consume before the paid call, including failures/timeouts: never retry a
+    // possibly billable request automatically or let an attacker spend again.
+    await claimGeneration(sql, userId, data.trialId, data.situation, data.photo, data.optionId);
     let edit: Response;
     try {
       edit = await fetch("https://api.x.ai/v1/images/edits", {

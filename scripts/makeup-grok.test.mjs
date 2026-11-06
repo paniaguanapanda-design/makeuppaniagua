@@ -17,6 +17,17 @@ function harness(
   },
 ) {
   const cache = new Map();
+  const credit = {
+    creditContext: async () => {
+      if (env.TEST_NO_SESSION) throw new Error("Inicia sesión");
+      return { sql: {}, userId: "test-user" };
+    },
+    reserveTrial: async () => "11111111-1111-4111-8111-111111111111",
+    remainingCredit: async () => 2,
+    claimGeneration: async () => {
+      if (env.TEST_NO_CREDIT) throw new Error("Crédito agotado");
+    },
+  };
   function load(name) {
     if (cache.has(name)) return cache.get(name);
     const path = fileURLToPath(new URL(`../src/${name}`, import.meta.url));
@@ -40,6 +51,7 @@ function harness(
         fetch,
         console: { warn() {} },
         require(id) {
+          if (id === "./credit.server" || id === "./credit-store.server") return credit;
           if (id === "@tanstack/react-start")
             return {
               createServerFn: () => ({
@@ -58,10 +70,24 @@ function harness(
   }
   return load;
 }
-const data = { situation: "boda", owned: [], skin: "" };
+const data = {
+  situation: "boda",
+  owned: [],
+  skin: "",
+  photo: "data:image/jpeg;base64,dGVzdA==",
+  requestId: "11111111-1111-4111-8111-111111111111",
+};
 const photo = "data:image/jpeg;base64,dGVzdA==";
 const request = (optionId) => ({
-  data: { ...data, photo, optionId, undertone: "neutro", depth: "media", shape: "ovalado" },
+  data: {
+    ...data,
+    photo,
+    optionId,
+    trialId: "11111111-1111-4111-8111-111111111111",
+    undertone: "neutro",
+    depth: "media",
+    shape: "ovalado",
+  },
 });
 
 test("every occasion has exactly three distinct restrained looks", () => {
@@ -84,7 +110,9 @@ test("every occasion has exactly three distinct restrained looks", () => {
 });
 
 test("catalog starts with three empty images, never a painted photo", async () => {
-  const cards = (await harness()("lib/makeup/imagine.ts").referenceLooks({ data })).cards;
+  const cards = (
+    await harness({ XAI_API_KEY: "test-only" })("lib/makeup/imagine.ts").referenceLooks({ data })
+  ).cards;
   assert.equal(cards.length, 3);
   assert.ok(cards.every((c) => c.imageUrl === ""));
 });
@@ -146,7 +174,7 @@ test("provider failures reject without a local replacement or private response",
 });
 
 test("pending and failed cards cannot be chosen, successful photos can", async () => {
-  const load = harness();
+  const load = harness({ XAI_API_KEY: "test-only" });
   const cards = (await load("lib/makeup/imagine.ts").referenceLooks({ data })).cards;
   const { OptionsScreen } = load("components/atelier/options.tsx");
   const html = renderToStaticMarkup(
@@ -170,7 +198,7 @@ test("pending and failed cards cannot be chosen, successful photos can", async (
   assert.equal((html.match(/data-testid="option-/g) ?? []).length, 3);
   assert.equal((html.match(/disabled=""/g) ?? []).length, 2);
   assert.equal((html.match(/<img /g) ?? []).length, 1);
-  assert.match(html, /Reintentar solo los looks fallidos/);
+  assert.match(html, /Esta solicitud ya consumió su plaza/);
   assert.match(html, /Grok está generando/);
   assert.match(html, /role="alert"/);
 });
@@ -205,5 +233,17 @@ test("each real edit requests complete makeup, not just retouching, even with a 
       call.prompt,
       /Almost no makeup|No blush|No eyeshadow|Very unsaturated|Every other area stays bare skin/,
     );
+  }
+});
+
+test("unauthorized or exhausted generation never reaches xAI", async () => {
+  for (const flag of ["TEST_NO_SESSION", "TEST_NO_CREDIT"]) {
+    let calls = 0;
+    const load = harness({ XAI_API_KEY: "test-only", [flag]: "true" }, async () => {
+      calls++;
+      return Response.json({});
+    });
+    await assert.rejects(load("lib/makeup/ai-look.ts").aiLook(request("piel")), /sesión|agotado/);
+    assert.equal(calls, 0);
   }
 });

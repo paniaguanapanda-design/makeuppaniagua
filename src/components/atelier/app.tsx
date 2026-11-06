@@ -1,3 +1,6 @@
+import { AccountScreen } from "@/components/atelier/account";
+import { authClient } from "@/lib/auth/client";
+import { trialCredit } from "@/lib/makeup/credit";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { KitScreen } from "@/components/atelier/kit";
 import { DirectoryScreen, HomeScreen, OccasionScreen } from "@/components/atelier/screens";
@@ -14,6 +17,29 @@ import { ArrowLeft } from "lucide-react";
 type View = "home" | "occasion" | "kit" | "scan" | "options" | "steps" | "directory";
 
 export function AtelierApp() {
+  const { data, isPending } = authClient.useSession();
+  if (isPending)
+    return (
+      <p role="status" className="p-8 text-center">
+        Comprobando tu sesión…
+      </p>
+    );
+  if (!data?.user) return <AccountScreen />;
+  return <AccountAtelier key={data.user.id} />;
+}
+
+function AccountAtelier() {
+  const [remaining, setRemaining] = useState<number | null>(null);
+  const [creditError, setCreditError] = useState("");
+  const [trialId, setTrialId] = useState<string | null>(null);
+  const requestId = useRef(crypto.randomUUID());
+  useEffect(() => {
+    trialCredit()
+      .then((credit) => setRemaining(credit.remaining))
+      .catch((e: unknown) =>
+        setCreditError(e instanceof Error ? e.message : "No pude consultar tu crédito."),
+      );
+  }, []);
   const [view, setView] = useState<View>("home");
   const [backTo, setBackTo] = useState<View>("home");
   const [situation, setSituation] = useState<SituationId | null>(null);
@@ -86,7 +112,13 @@ export function AtelierApp() {
     let job = referenceJobs.current.get(jobKey);
     if (!job) {
       job = referenceLooks({
-        data: { situation, owned, skin: profile?.skin ?? "" },
+        data: {
+          situation,
+          owned,
+          skin: profile?.skin ?? "",
+          photo: capture.photo.toDataURL("image/jpeg", 0.85),
+          requestId: requestId.current,
+        },
       });
       referenceJobs.current.set(jobKey, job);
     }
@@ -94,6 +126,8 @@ export function AtelierApp() {
     job
       .then((data) => {
         if (!alive) return;
+        setTrialId(data.trialId);
+        setRemaining(data.remaining);
         setCards(data.cards);
         setSeen({ skin: data.skinSeen, fromPhoto: data.skinFromPhoto });
         setCardsError(null);
@@ -113,7 +147,7 @@ export function AtelierApp() {
 
   // Solo mostrar imágenes de Grok. Cada solicitud tiene su propio estado y error.
   useEffect(() => {
-    if (view !== "options" || !cards || !capture?.read || !situation) return;
+    if (view !== "options" || !cards || !capture?.read || !situation || !trialId) return;
     const read = capture.read;
     const owned = noteZones(profile?.note ?? "");
     const jpeg = capture.photo.toDataURL("image/jpeg", 0.85);
@@ -125,6 +159,7 @@ export function AtelierApp() {
         data: {
           situation,
           optionId: card.id,
+          trialId,
           undertone: read.undertone,
           depth: read.depth,
           shape: read.shape,
@@ -157,7 +192,7 @@ export function AtelierApp() {
           );
         });
     }
-  }, [view, cards, capture, situation, profile, shot]);
+  }, [view, cards, capture, situation, profile, shot, trialId]);
 
   function openDirectory() {
     setBackTo(view === "directory" ? backTo : view);
@@ -207,11 +242,34 @@ export function AtelierApp() {
           </nav>
         </div>
       </header>
+      <div className="mx-auto max-w-6xl px-4 pt-4 text-center text-sm">
+        <p role="status">
+          {creditError ||
+            (remaining === null
+              ? "Consultando tus pruebas…"
+              : remaining === 0
+                ? "Has agotado tus 3 pruebas gratuitas."
+                : `Te quedan ${remaining} de 3 pruebas gratuitas.`)}
+        </p>
+        <p className="mt-1 text-xs text-muted">
+          Cada prueba reserva hasta 3 fotos. Las solicitudes enviadas a Grok consumen crédito aunque
+          fallen; no hay reintentos gratuitos.
+        </p>
+        <button
+          type="button"
+          className="min-h-11 underline"
+          onClick={() => void authClient.signOut()}
+        >
+          Cerrar sesión
+        </button>
+      </div>
       {view === "home" ? (
         <HomeScreen
           counts={directory?.counts ?? null}
           catalogError={catalogError}
-          onStart={() => setView("occasion")}
+          onStart={() => {
+            if (remaining !== null && remaining > 0 && !creditError) setView("occasion");
+          }}
           onDirectory={openDirectory}
         />
       ) : null}
@@ -238,6 +296,8 @@ export function AtelierApp() {
       {view === "scan" ? (
         <ScannerScreen
           onCapture={(next) => {
+            requestId.current = crypto.randomUUID();
+            setTrialId(null);
             setCapture(next);
             setPlan(null);
             setCards(null);
@@ -266,12 +326,6 @@ export function AtelierApp() {
           loading={cardsLoading}
           error={cardsError}
           onRetry={() => {
-            if (cards?.some((card) => card.error)) {
-              for (const card of cards.filter((card) => card.error))
-                upgraded.current.delete(`${shot}:${card.id}`);
-              setCards(cards.map((card) => ({ ...card, error: undefined })));
-              return;
-            }
             setCards(null);
             setCardsError(null);
             setShot((value) => value + 1);
