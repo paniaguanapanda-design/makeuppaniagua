@@ -28,11 +28,40 @@ export type ReferenceResult = {
   cards: ReferenceCard[];
   skinSeen: string;
   skinFromPhoto: boolean;
+  limited?: boolean;
 };
 
-// Control de coste: por defecto genera solo 1 imagen real
+// Control de coste
 const MAX_IMAGE_GENERATIONS = Number(process.env.MAX_IMAGE_GENERATIONS ?? 1);
 const ENABLE_IMAGE_GENERATION = !!process.env.XAI_API_KEY && process.env.ENABLE_IMAGE_GEN !== "false";
+
+// Límite por IP (en memoria, se reinicia con cold starts de Vercel)
+const MAX_GENERATIONS_PER_IP = Number(process.env.MAX_GENERATIONS_PER_IP ?? 5);
+const ipUsage = new Map<string, { count: number; resetAt: number }>();
+const WINDOW_MS = 24 * 60 * 60 * 1000; // 24 horas
+
+function getClientIp(headers: Headers): string {
+  const forwarded = headers.get("x-forwarded-for");
+  if (forwarded) return forwarded.split(",")[0].trim();
+  return headers.get("x-real-ip") || "unknown";
+}
+
+function checkAndIncrementIp(ip: string): boolean {
+  const now = Date.now();
+  const entry = ipUsage.get(ip);
+
+  if (!entry || now > entry.resetAt) {
+    ipUsage.set(ip, { count: 1, resetAt: now + WINDOW_MS });
+    return true;
+  }
+
+  if (entry.count >= MAX_GENERATIONS_PER_IP) {
+    return false;
+  }
+
+  entry.count += 1;
+  return true;
+}
 
 const SKIN_ASK =
   "Mira solo la piel de este rostro, para maquillaje. No diagnostiques ni des consejos médicos. " +
@@ -79,7 +108,7 @@ async function readSkin(photo: string) {
           {
             role: "user",
             content: [
-              { type: "input_image", image_url: photo, detail: "low" },
+              { type: "input_image", image_url: photo },
               { type: "input_text", text: SKIN_ASK },
             ],
           },
@@ -87,19 +116,17 @@ async function readSkin(photo: string) {
       }),
     });
     if (!response.ok) return "";
-    const raw = textFromResponse(await response.json()).replace(/\s+/g, " ").trim();
-    if (!raw) return "";
-    if (/piel pareja/i.test(raw)) return "Piel pareja";
-    return raw.replace(/^se ve en la foto:\s*/i, "").slice(0, 180);
+    const payload = await response.json();
+    return textFromResponse(payload).trim().slice(0, 160);
   } catch {
     return "";
   }
 }
 
-async function editPortrait(photo: string, prompt: string) {
+async function editPortrait(photo: string, prompt: string): Promise<string> {
   const key = process.env.XAI_API_KEY;
-  if (!key) throw new Error("No hay clave para crear la referencia.");
-  const response = await fetch("https://api.x.ai/v1/images/edits", {
+  if (!key) throw new Error("Sin clave de imagen.");
+  const response = await fetch("https://api.x.ai/v1/images/generations", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -107,14 +134,15 @@ async function editPortrait(photo: string, prompt: string) {
     },
     signal: AbortSignal.timeout(55_000),
     body: JSON.stringify({
-      model: "grok-imagine-image-2.0",
+      model: "grok-2-image",
       prompt,
-      image: { url: photo, type: "image_url" },
-      aspect_ratio: "3:4",
+      image: photo,
+      n: 1,
     }),
   });
   if (!response.ok) {
-    throw new Error("No pude crear la referencia.");
+    const detail = await response.text().catch(() => "");
+    throw new Error(detail || "No pude crear la referencia.");
   }
   const payload = (await response.json()) as { data?: { url?: string }[] };
   const url = payload.data?.[0]?.url;
@@ -124,7 +152,7 @@ async function editPortrait(photo: string, prompt: string) {
 
 export const referenceLooks = createServerFn({ method: "POST" })
   .validator(schema)
-  .handler(async ({ data }): Promise<ReferenceResult> => {
+  .handler(async ({ data, request }): Promise<ReferenceResult> => {
     const situation = data.situation as SituationId;
     const read: FaceRead = {
       shape: data.shape,
@@ -144,7 +172,7 @@ export const referenceLooks = createServerFn({ method: "POST" })
       kit: { base: "", ojos: "", labios: "", resto: "" },
     };
 
-    // Modo sin generación de imágenes (más barato para feedback)
+    // Modo sin generación de imágenes
     if (!ENABLE_IMAGE_GENERATION) {
       const cards: ReferenceCard[] = options.slice(0, 3).map((option) => ({
         id: option.id,
@@ -153,6 +181,25 @@ export const referenceLooks = createServerFn({ method: "POST" })
         imageUrl: "",
       }));
       return { cards, skinSeen: skin, skinFromPhoto: !written && Boolean(skin) };
+    }
+
+    // Límite por IP
+    const ip = getClientIp(request.headers);
+    const allowed = checkAndIncrementIp(ip);
+
+    if (!allowed) {
+      const cards: ReferenceCard[] = options.slice(0, 3).map((option) => ({
+        id: option.id,
+        title: option.title,
+        line: option.line,
+        imageUrl: "",
+      }));
+      return {
+        cards,
+        skinSeen: skin,
+        skinFromPhoto: !written && Boolean(skin),
+        limited: true,
+      };
     }
 
     const toGenerate = options.slice(0, Math.max(1, MAX_IMAGE_GENERATIONS));
@@ -180,7 +227,6 @@ export const referenceLooks = createServerFn({ method: "POST" })
       }
     });
 
-    // Completa hasta 3 opciones aunque fallen las imágenes
     for (let i = cards.length; i < 3 && i < options.length; i++) {
       const option = options[i];
       cards.push({
