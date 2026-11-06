@@ -6,13 +6,11 @@ import { ScannerScreen } from "@/components/atelier/scanner";
 import { StepsScreen } from "@/components/atelier/steps";
 import { referenceLooks, type ReferenceCard, type ReferenceResult } from "@/lib/makeup/imagine";
 import { aiLook } from "@/lib/makeup/ai-look";
-import { renderCard } from "@/lib/makeup/preview";
+import { jpegDataUrl } from "@/lib/makeup/photo";
 import { noteZones, personLine, type PersonBrief } from "@/lib/makeup/profile";
 import { getDirectory, recommendLook } from "@/lib/makeup/server";
 import type { Capture, Directory, LookPlan, SituationId } from "@/lib/makeup/types";
 import { ArrowLeft } from "lucide-react";
-
-const referenceJobs = new Map<string, Promise<ReferenceResult>>();
 
 type View = "home" | "occasion" | "kit" | "scan" | "options" | "steps" | "directory";
 
@@ -33,7 +31,7 @@ export function AtelierApp() {
   const [profile, setProfile] = useState<PersonBrief | null>(null);
   const [seen, setSeen] = useState({ skin: "", fromPhoto: false });
   const upgraded = useRef(new Set<string>());
-  const [aiNote, setAiNote] = useState("");
+  const referenceJobs = useRef(new Map<string, Promise<ReferenceResult>>());
   const shotRef = useRef(0);
   shotRef.current = shot;
 
@@ -85,26 +83,24 @@ export function AtelierApp() {
     if (view !== "options" || cards || cardsError || !capture?.read || !situation) return;
     let alive = true;
     const owned = noteZones(profile?.note ?? "");
-    const jobKey = `${shot}:${owned.join(",")}:${profile?.age ?? ""}:${profile?.tastes.join(",") ?? ""}:${profile?.note ?? ""}:${profile?.skin ?? ""}`;
-    let job = referenceJobs.get(jobKey);
+    const jobKey = `${situation}:${shot}:${owned.join(",")}:${profile?.age ?? ""}:${profile?.tastes.join(",") ?? ""}:${profile?.note ?? ""}:${profile?.skin ?? ""}`;
+    let job = referenceJobs.current.get(jobKey);
     if (!job) {
       job = referenceLooks({
         data: { situation, owned, skin: profile?.skin ?? "" },
       });
-      referenceJobs.set(jobKey, job);
+      referenceJobs.current.set(jobKey, job);
     }
     setCardsLoading(true);
     job
       .then((data) => {
         if (!alive) return;
-        setCards(
-          data.cards.map((card) => ({ ...card, imageUrl: renderCard(card, capture, situation, owned) })),
-        );
+        setCards(data.cards);
         setSeen({ skin: data.skinSeen, fromPhoto: data.skinFromPhoto });
         setCardsError(null);
       })
       .catch((error: unknown) => {
-        referenceJobs.delete(jobKey);
+        referenceJobs.current.delete(jobKey);
         if (!alive) return;
         setCardsError(error instanceof Error ? error.message : "No pude crear las referencias.");
       })
@@ -116,13 +112,13 @@ export function AtelierApp() {
     };
   }, [view, shot, cards, cardsError, capture, situation, profile]);
 
-  // Con clave de Gemini, cada tarjeta se mejora con una foto editada por IA. Si falla, queda el pintado local.
+  // Solo mostrar imágenes de Grok. Cada solicitud tiene su propio estado y error.
   useEffect(() => {
     if (view !== "options" || !cards || !capture?.read || !situation) return;
     const read = capture.read;
     const owned = noteZones(profile?.note ?? "");
-    const jpeg = capture.photo.toDataURL("image/jpeg", 0.85);
-    for (const card of cards) {
+    const jpeg = jpegDataUrl(capture.photo);
+    for (const card of cards.filter((card) => !card.imageUrl && !card.error)) {
       const id = `${shot}:${card.id}`;
       if (upgraded.current.has(id)) continue;
       upgraded.current.add(id);
@@ -139,11 +135,27 @@ export function AtelierApp() {
       })
         .then((res) => {
           if (shotRef.current !== shot) return;
-          setAiNote("ok");
-          setCards((prev) => prev?.map((c) => (c.id === card.id ? { ...c, imageUrl: res.imageUrl } : c)) ?? prev);
+          setCards(
+            (prev) =>
+              prev?.map((c) => (c.id === card.id ? { ...c, imageUrl: res.imageUrl } : c)) ?? prev,
+          );
         })
         .catch((error: unknown) => {
-          if (shotRef.current === shot) setAiNote(error instanceof Error ? error.message.slice(0, 160) : "error");
+          if (shotRef.current !== shot) return;
+          setCards(
+            (prev) =>
+              prev?.map((c) =>
+                c.id === card.id
+                  ? {
+                      ...c,
+                      error:
+                        error instanceof Error
+                          ? error.message
+                          : "No pude generar este look con Grok.",
+                    }
+                  : c,
+              ) ?? prev,
+          );
         });
     }
   }, [view, cards, capture, situation, profile, shot]);
@@ -158,7 +170,11 @@ export function AtelierApp() {
       <header className="sticky top-0 z-20 border-b border-line bg-surface/90 shadow-[0_8px_24px_rgba(131,24,67,0.06)] backdrop-blur-md">
         <div className="h-0.5 bg-blush" />
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
-          <button type="button" onClick={() => setView("home")} className="font-display text-xl tracking-wide">
+          <button
+            type="button"
+            onClick={() => setView("home")}
+            className="font-display text-xl tracking-wide"
+          >
             NEUSTA
           </button>
           <nav className="flex items-center gap-1">
@@ -193,10 +209,7 @@ export function AtelierApp() {
         </div>
       </header>
       {view === "home" ? (
-        <HomeScreen
-          onStart={() => setView("occasion")}
-          onDirectory={openDirectory}
-        />
+        <HomeScreen onStart={() => setView("occasion")} onDirectory={openDirectory} />
       ) : null}
       {view === "occasion" ? (
         <OccasionScreen
@@ -232,11 +245,6 @@ export function AtelierApp() {
           }}
         />
       ) : null}
-      {view === "options" && aiNote ? (
-        <p className="mx-auto max-w-6xl px-4 pt-2 text-center text-xs text-muted">
-          {aiNote === "ok" ? "IA: foto mejorada" : `IA no disponible: ${aiNote}`}
-        </p>
-      ) : null}
       {view === "options" && situation ? (
         <OptionsScreen
           situation={situation}
@@ -254,6 +262,12 @@ export function AtelierApp() {
           loading={cardsLoading}
           error={cardsError}
           onRetry={() => {
+            if (cards?.some((card) => card.error)) {
+              for (const card of cards.filter((card) => card.error))
+                upgraded.current.delete(`${shot}:${card.id}`);
+              setCards(cards.map((card) => ({ ...card, error: undefined })));
+              return;
+            }
             setCards(null);
             setCardsError(null);
             setShot((value) => value + 1);
