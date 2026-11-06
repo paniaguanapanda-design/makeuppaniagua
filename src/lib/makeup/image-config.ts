@@ -1,10 +1,10 @@
 /** Server-side generation controls shared by the catalog and edit endpoint. */
 export function imageGenerationConfig() {
   const flag = process.env.ENABLE_IMAGE_GEN ?? process.env.ENEBLE_IMAGE_GEN;
-  const value = Number(process.env.MAX_IMAGE_GENERATIONS ?? 1);
+  const value = Number(process.env.MAX_IMAGE_GENERATIONS ?? 3);
   return {
     enabled: flag !== "false",
-    max: Number.isFinite(value) ? Math.min(3, Math.max(1, Math.floor(value))) : 1,
+    max: Number.isFinite(value) ? Math.min(3, Math.max(1, Math.floor(value))) : 3,
   };
 }
 

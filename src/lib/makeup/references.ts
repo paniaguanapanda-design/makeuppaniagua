@@ -1,5 +1,12 @@
 import { personPrompt, type PersonBrief } from "@/lib/makeup/profile";
-import type { Depth, FaceRead, FaceShape, SituationId, Undertone, ZoneId } from "@/lib/makeup/types";
+import type {
+  Depth,
+  FaceRead,
+  FaceShape,
+  SituationId,
+  Undertone,
+  ZoneId,
+} from "@/lib/makeup/types";
 
 export const OPTION_IDS = ["piel", "poco", "natural", "definido", "cargado"] as const;
 export type OptionId = (typeof OPTION_IDS)[number];
@@ -14,10 +21,12 @@ export type LookOption = {
 
 const SHAPE_FIT: Record<FaceShape, string> = {
   ovalado: "Oval face: place blush slightly toward the temple.",
-  redondo: "Round face: lift the color toward the temples and do not put a round patch on the cheek apple.",
+  redondo:
+    "Round face: lift the color toward the temples and do not put a round patch on the cheek apple.",
   cuadrado: "Square face: soften the jaw corners and round the blush.",
   corazon: "Heart-shaped face: little product on the temples, blush lower on the cheek.",
-  alargado: "Long face: blush sits horizontal at mid-cheek. Do not lengthen the nose with highlight.",
+  alargado:
+    "Long face: blush sits horizontal at mid-cheek. Do not lengthen the nose with highlight.",
 };
 
 const TONE_FIT: Record<Undertone, string> = {
@@ -130,7 +139,16 @@ const COPY: Record<SituationId, { title: string; line: string }[]> = {
   ],
 };
 
-const ZONE_ORDER: ZoneId[] = ["labios", "cejas", "rubor", "base", "iluminador", "ojos", "contorno", "fijador"];
+const ZONE_ORDER: ZoneId[] = [
+  "labios",
+  "cejas",
+  "rubor",
+  "base",
+  "iluminador",
+  "ojos",
+  "contorno",
+  "fijador",
+];
 
 const CAP: Record<OptionId, number> = {
   piel: 2,
@@ -141,24 +159,29 @@ const CAP: Record<OptionId, number> = {
 };
 
 export function optionsFor(situation: SituationId): LookOption[] {
-  return OPTION_IDS.map((id, index) => {
+  return OPTION_IDS.flatMap((id, index) => {
+    if (id === "poco" || id === "cargado") return [];
     const copy = COPY[situation][index];
     const level = LEVEL[id];
-    const zones = level.zones.filter((zone) => zone !== "ojos" || id === "cargado" || situation === "fiesta" || situation === "editorial");
+    const zones = level.zones.filter(
+      (zone) => zone !== "ojos" || situation === "fiesta" || situation === "editorial",
+    );
     return {
       id,
       title: copy?.title ?? id,
       line: copy?.line ?? "",
       prompt: `${OCCASION[situation]} ${level.prompt}`,
-      zones: id === "definido" && (situation === "fiesta" || situation === "editorial" || situation === "cita")
-        ? [...zones, "ojos"]
-        : zones,
+      zones:
+        id === "definido" &&
+        (situation === "fiesta" || situation === "editorial" || situation === "cita")
+          ? [...zones, "ojos"]
+          : zones,
     };
   });
 }
 
 export function optionById(situation: SituationId, id: OptionId) {
-  return optionsFor(situation).find((item) => item.id === id) ?? optionsFor(situation)[2];
+  return optionsFor(situation).find((item) => item.id === id) ?? optionsFor(situation)[1];
 }
 
 export function visibleZones(option: LookOption, owned: ZoneId[]) {
@@ -189,6 +212,7 @@ export function referencePrompt(
     person ? personPrompt(person) : "",
     `Makeup is visible only here: ${zones.join(", ") || "nowhere"}. Every other area stays bare skin.`,
     "Keep the color unsaturated unless this is the fullest option, and even then do not oversaturate.",
+    "Preserve pores, fine lines and natural skin texture. No clown makeup, theatrical face paint, harsh outlines, oversized lips, plastic skin or beauty filter.",
     "No text, no watermark, no extra people.",
   ]
     .filter(Boolean)
