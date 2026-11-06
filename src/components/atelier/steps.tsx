@@ -42,8 +42,8 @@ export function StepsScreen({
 
   return (
     <div className="mx-auto max-w-6xl px-4 pb-16 pt-8">
-      <p className="brand text-ink">NEUSTA</p>
-      <h1 data-testid="look-title" className="mt-7 text-center text-4xl sm:text-6xl">
+      <p className="step-eyebrow text-center">Tu look</p>
+      <h1 data-testid="look-title" className="mt-3 text-center text-4xl">
         {card.title}
       </h1>
       <div className="hair" />
@@ -76,7 +76,11 @@ export function StepsScreen({
         </div>
         <div>
           {error ? (
-            <button type="button" onClick={onRetry} className="min-h-11 rounded-full bg-ink px-5 text-surface">
+            <button
+              type="button"
+              onClick={onRetry}
+              className="min-h-11 rounded-full bg-ink px-5 text-surface"
+            >
               Reintentar los productos
             </button>
           ) : null}
@@ -102,7 +106,9 @@ export function StepsScreen({
                 <p className="mt-1 font-display text-2xl">{step.title}</p>
                 <p className="mt-2 text-sm">{step.instruction}</p>
                 {(() => {
-                  const hers = kit ? hersForZone({ age: "joven", tastes: [], note, skin, kit }, step.zone) : "";
+                  const hers = kit
+                    ? hersForZone({ age: "joven", tastes: [], note, skin, kit }, step.zone)
+                    : "";
                   return hers ? (
                     <p className="mt-3 text-sm">Usa lo que ya tienes: {hers}</p>
                   ) : (
@@ -112,7 +118,8 @@ export function StepsScreen({
                         {step.product.brandName} · {step.product.name}
                       </p>
                       <p className="text-sm text-muted tabular-nums">
-                        {step.product.shade} · {step.product.finish} · {Math.round(step.product.priceEur)} €
+                        {step.product.shade} · {step.product.finish} ·{" "}
+                        {Math.round(step.product.priceEur)} €
                       </p>
                     </>
                   );
@@ -121,7 +128,8 @@ export function StepsScreen({
             ))}
           </ol>
           <p className="mt-8 text-sm text-muted">
-            El catálogo no vende ni reserva estilistas. El orden es para repetir la referencia en la piel.
+            El catálogo no vende ni reserva estilistas. El orden es para repetir la referencia en la
+            piel.
           </p>
           <FeedbackForm situation={situation} />
         </div>

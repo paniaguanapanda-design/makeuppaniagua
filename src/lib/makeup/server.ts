@@ -35,7 +35,9 @@ const recommendSchema = z.object({
   shape: z.enum(["ovalado", "redondo", "cuadrado", "corazon", "alargado"]),
   owned: z.array(z.string().max(40)).max(60),
   age: z.enum(["menor", "joven", "treinta", "cuarenta", "madura", "silver"]),
-  tastes: z.array(z.enum(["natural", "poco", "color", "luminosa", "mate", "ceja", "labio", "ojo"])).max(8),
+  tastes: z
+    .array(z.enum(["natural", "poco", "color", "luminosa", "mate", "ceja", "labio", "ojo"]))
+    .max(8),
   note: z.string().max(800),
   skin: z.string().max(300),
 });
@@ -158,16 +160,27 @@ function scoreProduct(
   if (product.priceEur > 20) score -= 8;
   if (age === "menor" && product.priceEur > 14) score -= 3;
   if ((age === "madura" || age === "silver") && product.finish.includes("metal")) score -= 6;
-  if ((age === "cuarenta" || age === "madura" || age === "silver") && /satinado|crema|luminoso|hidratante|brillo/.test(product.finish)) {
+  if (
+    (age === "cuarenta" || age === "madura" || age === "silver") &&
+    /satinado|crema|luminoso|hidratante|brillo/.test(product.finish)
+  ) {
     score += 2;
   }
   if (tastes.includes("mate") && product.finish.includes("mate")) score += 3;
-  if (tastes.includes("luminosa") && /luminoso|satinado|crema|brillo/.test(product.finish)) score += 3;
-  if (/seca|tirante|escama/.test(skin.toLowerCase()) && /crema|satinado|hidratante|luminoso|brillo/.test(product.finish)) {
+  if (tastes.includes("luminosa") && /luminoso|satinado|crema|brillo/.test(product.finish))
+    score += 3;
+  if (
+    /seca|tirante|escama/.test(skin.toLowerCase()) &&
+    /crema|satinado|hidratante|luminoso|brillo/.test(product.finish)
+  ) {
     score += 2;
   }
-  if (/grasa|poro|acne|acné|grano/.test(skin.toLowerCase()) && product.finish.includes("mate")) score += 2;
-  if (/acne|acné|grano|sensible|rosacea|rosácea/.test(skin.toLowerCase()) && product.finish.includes("cubriente")) {
+  if (/grasa|poro|acne|acné|grano/.test(skin.toLowerCase()) && product.finish.includes("mate"))
+    score += 2;
+  if (
+    /acne|acné|grano|sensible|rosacea|rosácea/.test(skin.toLowerCase()) &&
+    product.finish.includes("cubriente")
+  ) {
     score -= 3;
   }
   if (product.undertone === undertone) score += 4;
@@ -186,10 +199,18 @@ function scoreProduct(
 }
 
 function hasTension(product: Product, undertone: Undertone) {
-  if (product.category === "base" || product.category === "contorno" || product.category === "fijador") {
+  if (
+    product.category === "base" ||
+    product.category === "contorno" ||
+    product.category === "fijador"
+  ) {
     return false;
   }
-  if (product.undertone === "universal" || product.undertone === "neutro" || undertone === "neutro") {
+  if (
+    product.undertone === "universal" ||
+    product.undertone === "neutro" ||
+    undertone === "neutro"
+  ) {
     return false;
   }
   return product.undertone !== undertone;
@@ -201,75 +222,77 @@ const REMAP_BRAND: Partial<Record<ZoneId, "look" | string>> = {
   iluminador: "essence",
 };
 
-export const getDirectory = createServerFn({ method: "GET" }).handler(async (): Promise<Directory> => {
-  const sql = await getSql();
-  const brands = await sql<{
-    id: string;
-    name: string;
-    origin: string;
-    note: string;
-    tier: string;
-    product_count: number;
-  }>`
+export const getDirectory = createServerFn({ method: "GET" }).handler(
+  async (): Promise<Directory> => {
+    const sql = await getSql();
+    const brands = await sql<{
+      id: string;
+      name: string;
+      origin: string;
+      note: string;
+      tier: string;
+      product_count: number;
+    }>`
     select b.id, b.name, b.origin, b.note, b.tier,
            (select count(*) from products p where p.brand_id = b.id) as product_count
     from brands b
     order by b.name
   `;
-  const stylists = await sql<{
-    id: string;
-    name: string;
-    city: string;
-    focus: string;
-    signature: string;
-    years: number;
-  }>`
+    const stylists = await sql<{
+      id: string;
+      name: string;
+      city: string;
+      focus: string;
+      signature: string;
+      years: number;
+    }>`
     select id, name, city, focus, signature, years
     from stylists
     order by name
   `;
-  const counts = await sql<{
-    brands: number;
-    stylists: number;
-    products: number;
-    looks: number;
-  }>`
+    const counts = await sql<{
+      brands: number;
+      stylists: number;
+      products: number;
+      looks: number;
+    }>`
     select
       (select count(*) from brands) as brands,
       (select count(*) from stylists) as stylists,
       (select count(*) from products) as products,
       (select count(*) from looks) as looks
   `;
-  const tally = counts[0] ?? { brands: 0, stylists: 0, products: 0, looks: 0 };
-  const productRows = await sql<ProductRow>`
+    const tally = counts[0] ?? { brands: 0, stylists: 0, products: 0, looks: 0 };
+    const productRows = await sql<ProductRow>`
     select p.id, p.brand_id, b.name as brand_name, p.name, p.category, p.finish,
            p.shade, p.hex, p.undertone, p.depth, p.price_eur
     from products p
     join brands b on b.id = p.brand_id
     order by p.category, b.name, p.shade
   `;
-  return {
-    brands: brands.map((brand) => ({
-      id: brand.id,
-      name: brand.name,
-      origin: brand.origin,
-      note: brand.note,
-      tier: brand.tier,
-      productCount: Number(brand.product_count),
-    })),
-    stylists: stylists.map((stylist) => ({
-      ...stylist,
-      years: Number(stylist.years),
-    })),
-    counts: {
-      brands: Number(tally.brands),
-      stylists: Number(tally.stylists),
-      products: Number(tally.products),
-      looks: Number(tally.looks),
-    },
-    products: productRows.map(mapProduct),
-  };
-});
+    return {
+      brands: brands.map((brand) => ({
+        id: brand.id,
+        name: brand.name,
+        origin: brand.origin,
+        note: brand.note,
+        tier: brand.tier,
+        productCount: Number(brand.product_count),
+      })),
+      stylists: stylists.map((stylist) => ({
+        ...stylist,
+        years: Number(stylist.years),
+      })),
+      counts: {
+        brands: Number(tally.brands),
+        stylists: Number(tally.stylists),
+        products: Number(tally.products),
+        looks: Number(tally.looks),
+      },
+      products: productRows.map(mapProduct),
+    };
+  },
+);
 
 export const recommendLook = createServerFn({ method: "POST" })
   .validator(recommendSchema)

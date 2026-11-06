@@ -8,16 +8,13 @@ const PORTRAITS = [
   { id: "lino", src: "/studio/lino.jpg", label: "Lino", note: "Piel clara" },
 ];
 
-export function ScannerScreen({
-  onCapture,
-}: {
-  onCapture: (capture: Capture) => void;
-}) {
+export function ScannerScreen({ onCapture }: { onCapture: (capture: Capture) => void }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const [model, setModel] = useState<"loading" | "ready" | "error">("loading");
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [live, setLive] = useState(false);
+  const [photoConsent, setPhotoConsent] = useState(false);
   const [facing, setFacing] = useState<"user" | "environment">("user");
   const facingRef = useRef<"user" | "environment">("user");
   const [locked, setLocked] = useState(false);
@@ -50,7 +47,12 @@ export function ScannerScreen({
       if (stop) return;
       const video = videoRef.current;
       if (video && video.videoWidth > 0) {
-        const frame = canvasFromImage(video, video.videoWidth, video.videoHeight, facingRef.current === "user");
+        const frame = canvasFromImage(
+          video,
+          video.videoWidth,
+          video.videoHeight,
+          facingRef.current === "user",
+        );
         const result = await readPortrait(frame);
         if (stop || taken.current) return;
         if (result.landmarks) {
@@ -60,7 +62,12 @@ export function ScannerScreen({
             taken.current = true;
             setBusy("Leyendo el rostro");
             streamRef.current?.getTracks().forEach((track) => track.stop());
-            onCaptureRef.current({ photo: frame, landmarks: result.landmarks, read: result.read, source: "camera" });
+            onCaptureRef.current({
+              photo: frame,
+              landmarks: result.landmarks,
+              read: result.read,
+              source: "camera",
+            });
           }
         } else {
           streak.current = 0;
@@ -106,7 +113,7 @@ export function ScannerScreen({
     }
   }
 
-  async function usePortrait(src: string) {
+  async function selectPortrait(src: string) {
     setBusy("Aplicando el maquillaje");
     setCameraError(null);
     try {
@@ -122,12 +129,24 @@ export function ScannerScreen({
   }
 
   return (
-    <div className="mx-auto max-w-6xl px-4 pb-16 pt-8">
-      <p className="text-xs tracking-widest text-muted uppercase">Paso 3</p>
-      <h1 className="mt-3 max-w-2xl text-4xl sm:text-6xl">Deja que te vea</h1>
-      <p className="mt-4 max-w-xl text-muted">
-        Mira a la lente, con luz de frente. Puedes usar la cámara frontal o la trasera. En cuanto encuentro la cara, preparo tres referencias. La foto no se guarda.
+    <div className="mx-auto max-w-6xl px-4 pb-16 pt-8 text-center">
+      <p className="step-eyebrow">Paso 3 de 4</p>
+      <h1 className="mt-3 text-4xl">Deja que te vea</h1>
+      <p className="mx-auto mt-4 max-w-xl text-sm text-muted">
+        Mira a la lente, con luz de frente. Al encontrar tu rostro, preparo tres referencias.
       </p>
+      <label className="photo-consent mx-auto mt-5 flex max-w-xl items-start gap-3 rounded-2xl px-4 py-4 text-sm">
+        <input
+          type="checkbox"
+          checked={photoConsent}
+          onChange={(event) => setPhotoConsent(event.target.checked)}
+          className="mt-1 size-4 shrink-0 accent-[var(--color-blush)]"
+        />
+        <span>
+          Entiendo que mi foto se enviará al servicio de IA de xAI para generar los looks. NEUSTA no
+          guarda la foto en su base de datos. Solo usaré una foto propia o con permiso.
+        </span>
+      </label>
       <div className="mt-8 grid items-start gap-8 lg:grid-cols-2">
         <div className="overflow-hidden rounded-2xl border border-line bg-ink">
           <div className="relative frame-portrait bg-ink">
@@ -185,6 +204,7 @@ export function ScannerScreen({
                 <button
                   type="button"
                   data-testid="open-camera"
+                  disabled={!photoConsent}
                   onClick={() => void openCamera("user")}
                   className="min-h-11 rounded-full bg-ink px-6 text-surface"
                 >
@@ -193,6 +213,7 @@ export function ScannerScreen({
                 <button
                   type="button"
                   data-testid="open-rear-camera"
+                  disabled={!photoConsent}
                   onClick={() => void openCamera("environment")}
                   className="min-h-11 rounded-full border border-line px-6"
                 >
@@ -211,8 +232,8 @@ export function ScannerScreen({
                 key={portrait.id}
                 type="button"
                 data-testid={`studio-${portrait.id}`}
-                disabled={Boolean(busy)}
-                onClick={() => void usePortrait(portrait.src)}
+                disabled={Boolean(busy) || !photoConsent}
+                onClick={() => void selectPortrait(portrait.src)}
                 className="overflow-hidden rounded-2xl border border-line bg-surface text-left"
               >
                 <img src={portrait.src} alt="" className="frame-portrait w-full object-cover" />
