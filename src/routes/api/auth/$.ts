@@ -2,7 +2,10 @@ import { createFileRoute } from "@tanstack/react-router";
 import { auth } from "@/lib/auth/server";
 
 function handle(request: Request) {
-  if (process.env.VITE_AUTH_ENABLED === "false") {
+  if (
+    process.env.VITE_AUTH_ENABLED === "false" ||
+    (process.env.BETTER_AUTH_SECRET?.trim().length ?? 0) < 32
+  ) {
     return new Response("El acceso no está configurado.", { status: 503 });
   }
   if (
