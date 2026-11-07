@@ -479,9 +479,41 @@ test("consultation fields retain previous choices and uncertain analysis is not 
       onRetake() {},
     }),
   );
-  assert.match(result, /Subtono sin confirmar/);
-  assert.match(result, /Forma sin confirmar/);
+  assert.doesNotMatch(result, /sin confirmar/);
   assert.doesNotMatch(result, /Redondo|Cálido/);
   assert.match(result, /Usar otra foto/);
-  assert.match(result, /#A45C66/);
+  assert.match(result, /Luz suficiente/);
+  assert.doesNotMatch(result, /#A45C66/);
+});
+
+test("preparation shows a warm, occasion-specific status without premature facial results or technical disclaimers", () => {
+  const { OptionsScreen } = harness()("components/atelier/options.tsx");
+  const props = {
+    situation: "editorial",
+    read: { shape: "redondo", undertone: "calido", depth: "media" },
+    analysis: null,
+    summary: "36 a 45",
+    preferences: "piel luminosa, ceja marcada",
+    skinLine: "",
+    cards: null,
+    loading: true,
+    error: null,
+    onRetry() {},
+    onChoose() {},
+  };
+  const html = renderToStaticMarkup(React.createElement(OptionsScreen, props));
+  assert.match(html, /Estoy analizando tu foto/);
+  assert.match(html, /para editorial/);
+  assert.match(html, /piel luminosa, ceja marcada/);
+  assert.match(html, /role="status"/);
+  assert.doesNotMatch(html, /sin confirmar|Profundidad|diagnosticar|36 a 45|Redondo|Cálido/);
+  const failed = renderToStaticMarkup(
+    React.createElement(OptionsScreen, {
+      ...props,
+      loading: false,
+      error: "No pude analizar la foto.",
+    }),
+  );
+  assert.doesNotMatch(failed, /Estoy analizando/);
+  assert.match(failed, /No pude analizar/);
 });

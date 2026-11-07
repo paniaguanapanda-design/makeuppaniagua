@@ -10,7 +10,7 @@ import { analyzePortrait } from "@/lib/makeup/analyze";
 import { type PortraitAnalysis } from "@/lib/makeup/consultation";
 import { aiLook } from "@/lib/makeup/ai-look";
 import { jpegDataUrl } from "@/lib/makeup/photo";
-import { noteZones, personLine, type PersonBrief } from "@/lib/makeup/profile";
+import { TASTES, noteZones, personLine, type PersonBrief } from "@/lib/makeup/profile";
 import { getDirectory, recommendLook } from "@/lib/makeup/server";
 import type { Capture, Directory, LookPlan, SituationId } from "@/lib/makeup/types";
 import { ArrowLeft } from "lucide-react";
@@ -340,7 +340,9 @@ export function AtelierApp() {
                 ? `En la foto: ${seen.skin}. No es un diagnóstico.`
                 : ""
           }
-          readingSkin={!profile?.skin}
+          preferences={TASTES.filter((taste) => profile?.tastes.includes(taste.id))
+            .map((taste) => taste.label.toLowerCase())
+            .join(", ")}
           cards={cards}
           loading={cardsLoading}
           error={cardsError}

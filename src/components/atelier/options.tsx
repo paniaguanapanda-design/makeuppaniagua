@@ -1,6 +1,5 @@
 import { ArrowRight } from "lucide-react";
 import {
-  DEPTH_LABEL,
   SHAPE_LABEL,
   TONE_LABEL,
   type FaceRead,
@@ -18,7 +17,7 @@ export function OptionsScreen({
   read,
   summary,
   skinLine,
-  readingSkin,
+  preferences = "",
   cards,
   loading,
   error,
@@ -31,7 +30,8 @@ export function OptionsScreen({
   read: FaceRead | null;
   summary: string;
   skinLine: string;
-  readingSkin: boolean;
+  readingSkin?: boolean;
+  preferences?: string;
   cards: ReferenceCard[] | null;
   loading: boolean;
   error: string | null;
@@ -48,29 +48,47 @@ export function OptionsScreen({
       </h1>
       <div className="hair" />
       <p className="text-center text-sm text-muted">{occasion.label} · Elige tu favorito.</p>
-      {read ? (
-        <p className="mx-auto mt-4 max-w-2xl text-center text-sm">
-          Lectura orientativa:{" "}
-          {analysis?.forma_rostro ? SHAPE_LABEL[analysis.forma_rostro] : "Forma sin confirmar"} ·{" "}
-          {analysis?.subtono_piel ? TONE_LABEL[analysis.subtono_piel] : "Subtono sin confirmar"} ·
-          Profundidad aproximada: {DEPTH_LABEL[read.depth]}. No son mediciones ni reglas sobre cómo
-          debes maquillarte.
-          {summary ? ` ${summary}.` : ""}
+      {read && !analysis && !error ? (
+        <p className="mx-auto mt-4 max-w-2xl text-center text-sm" role="status">
+          Estoy analizando tu foto para preparar tres looks de maquillaje para{" "}
+          {occasion.label.toLowerCase()}.
+          {preferences
+            ? ` Según tus preferencias: ${preferences}.`
+            : " Adaptados a tus preferencias."}
         </p>
-      ) : (
+      ) : null}
+      {!read ? (
         <p className="mt-4 text-sm text-blush">
-          No pude leer este rostro, así que no armo una referencia genérica.
+          No pude leer este rostro. Prueba otra foto con buena luz y la cara visible.
         </p>
-      )}
+      ) : null}
       {analysis ? (
-        <div className="mx-auto mt-3 max-w-2xl text-center text-sm" role="status">
-          <p>{analysis.observaciones}</p>
-          {analysis.forma_ojos ? <p>Ojos (orientativo): {analysis.forma_ojos}</p> : null}
-          {analysis.advertencias.map((warning, index) => (
-            <p key={index}>{warning}</p>
-          ))}
-          {analysis.paleta_recomendada.length ? (
-            <p>Paleta orientativa: {analysis.paleta_recomendada.join(" · ")}</p>
+        <div className="mx-auto mt-4 max-w-2xl text-center text-sm">
+          {summary ? <p>{summary}</p> : null}
+          {analysis.forma_rostro || analysis.subtono_piel ? (
+            <p className="mt-2">
+              Como orientación para tu maquillaje:{" "}
+              {[
+                analysis.forma_rostro
+                  ? `rostro ${SHAPE_LABEL[analysis.forma_rostro].toLowerCase()}`
+                  : "",
+                analysis.subtono_piel
+                  ? `subtono ${TONE_LABEL[analysis.subtono_piel].toLowerCase()}`
+                  : "",
+              ]
+                .filter(Boolean)
+                .join(" y ")}
+              .
+            </p>
+          ) : null}
+          {analysis.observaciones ? <p className="mt-2">{analysis.observaciones}</p> : null}
+          {analysis.advertencias.length ? (
+            <details className="mt-2">
+              <summary>Consejos para una foto más precisa</summary>
+              {analysis.advertencias.map((warning, index) => (
+                <p key={index}>{warning}</p>
+              ))}
+            </details>
           ) : null}
         </div>
       ) : null}
@@ -145,10 +163,8 @@ export function OptionsScreen({
                   <div className="look-choice-image animate-pulse bg-clay/60" />
                   <p className="flex-1 px-4 py-4 text-sm text-muted">
                     {item === 0
-                      ? readingSkin
-                        ? "Compruebo la luz y los rasgos visibles, sin diagnosticar la piel."
-                        : "Ajustando el maquillaje a esta cara."
-                      : "Preparando otra opción."}
+                      ? "Preparando tu primera propuesta."
+                      : "Preparando otra opción para ti."}
                   </p>
                 </div>
               ))
