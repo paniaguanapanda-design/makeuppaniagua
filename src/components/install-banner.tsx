@@ -1,20 +1,25 @@
 import { useEffect, useState } from "react";
+import { Download, X } from "lucide-react";
+import { dismissInstall, installDismissedRecently } from "@/lib/makeup/memory";
 
 type BeforeInstallPromptEvent = Event & {
   prompt: () => Promise<void>;
   userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
 };
 
-export function InstallBanner() {
+/** Solo aparece cuando ya ha visto su primer look: nunca tapa el primer paso. */
+export function InstallBanner({ ready }: { ready: boolean }) {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [dismissed, setDismissed] = useState(false);
   const [isStandalone, setIsStandalone] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
 
   useEffect(() => {
     const standalone =
       window.matchMedia("(display-mode: standalone)").matches ||
       (window.navigator as any).standalone === true;
     setIsStandalone(standalone);
+    setDismissed(installDismissedRecently());
 
     const handler = (e: Event) => {
       e.preventDefault();
@@ -26,52 +31,68 @@ export function InstallBanner() {
   }, []);
 
   // No mostrar si ya está instalada o si el usuario la cerró
-  if (isStandalone || dismissed) return null;
+  if (isStandalone || dismissed || !ready) return null;
+
+  function close() {
+    dismissInstall();
+    setDismissed(true);
+  }
 
   async function install() {
     if (deferredPrompt) {
       await deferredPrompt.prompt();
       const { outcome } = await deferredPrompt.userChoice;
-      if (outcome === "accepted") setDismissed(true);
+      if (outcome === "accepted") close();
       setDeferredPrompt(null);
     } else {
-      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-      if (isIOS) {
-        alert(
-          "Para instalar en iPhone:\n1. Toca el botón de compartir (cuadrado con flecha arriba)\n2. Elige \u201cAñadir a pantalla de inicio\u201d",
-        );
-      } else {
-        alert(
-          "Para instalar:\n1. Abre el menú del navegador (los tres puntos)\n2. Elige \u201cAñadir a la pantalla de inicio\u201d o \u201cInstalar app\u201d",
-        );
-      }
+      setShowHelp(true);
     }
   }
 
+  const isIOS = typeof navigator !== "undefined" && /iPad|iPhone|iPod/.test(navigator.userAgent);
+
   return (
-    <div className="fixed bottom-5 left-1/2 z-50 w-[min(94%,400px)] -translate-x-1/2">
-      <div className="flex items-center justify-between gap-3 rounded-2xl border border-white/50 bg-white/90 px-4 py-3.5 shadow-xl backdrop-blur-lg">
-        <div>
-          <p className="text-sm font-semibold">Instala NEUSTA</p>
-          <p className="text-xs text-muted">Añádela a tu pantalla de inicio</p>
-        </div>
-        <div className="flex shrink-0 items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setDismissed(true)}
-            className="px-2 text-xs text-muted"
-          >
-            Ahora no
-          </button>
-          <button
-            type="button"
-            onClick={install}
-            className="rounded-full bg-ink px-5 py-2.5 text-sm font-medium text-surface"
-          >
-            Instala
-          </button>
+    <>
+      <div className="h-28" aria-hidden="true" />
+      <div
+        className="toast-enter fixed bottom-4 left-1/2 z-40 w-[min(92%,400px)] -translate-x-1/2"
+        role="dialog"
+        aria-label="Instalar NEUSTA"
+      >
+        <div className="rounded-2xl border border-line bg-surface/95 px-4 py-3.5 shadow-xl backdrop-blur-lg">
+          <div className="flex items-center gap-3">
+            <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-blush/10 text-blush">
+              <Download className="size-5" aria-hidden="true" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold">Ten NEUSTA a mano</p>
+              <p className="text-xs text-muted">Añádela a tu pantalla de inicio</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => void install()}
+              className="min-h-10 rounded-full bg-ink px-4 text-sm font-medium text-surface"
+            >
+              Añadir
+            </button>
+            <button
+              type="button"
+              onClick={close}
+              aria-label="Cerrar"
+              className="icon-button -mr-2 text-muted"
+            >
+              <X className="size-4" aria-hidden="true" />
+            </button>
+          </div>
+          {showHelp ? (
+            <p className="mt-3 border-t border-line pt-3 text-xs text-muted">
+              {isIOS
+                ? "En Safari, pulsa el botón Compartir (cuadrado con flecha) y elige «Añadir a pantalla de inicio»."
+                : "Abre el menú del navegador (los tres puntos) y elige «Instalar app» o «Añadir a pantalla de inicio»."}
+            </p>
+          ) : null}
         </div>
       </div>
-    </div>
+    </>
   );
 }

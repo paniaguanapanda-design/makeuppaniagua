@@ -95,7 +95,6 @@ async function editPortrait(photo: string, prompt: string): Promise<string> {
   const key = process.env.XAI_API_KEY;
   if (!key) throw new Error("Sin XAI_API_KEY");
 
-  console.log("[imagine] calling /v1/images/edits");
   const response = await fetch("https://api.x.ai/v1/images/edits", {
     method: "POST",
     headers: {
@@ -112,8 +111,7 @@ async function editPortrait(photo: string, prompt: string): Promise<string> {
   });
 
   const text = await response.text();
-  console.log("[imagine] status", response.status, text.slice(0, 500));
-  if (!response.ok) throw new Error(text || "Error de xAI");
+  if (!response.ok) throw new Error(`xAI ${response.status}: ${text.slice(0, 300)}`);
 
   const payload = JSON.parse(text) as { data?: { url?: string }[] };
   const url = payload.data?.[0]?.url;
@@ -127,7 +125,6 @@ export const referenceLooks = createServerFn({ method: "POST" })
     const key = process.env.XAI_API_KEY;
     const flag = process.env.ENABLE_IMAGE_GEN;
     const max = Number(process.env.MAX_IMAGE_GENERATIONS ?? 1);
-    console.log("[imagine] key=", !!key, "flag=", flag, "max=", max);
 
     const situation = data.situation as SituationId;
     const read: FaceRead = {
@@ -149,7 +146,6 @@ export const referenceLooks = createServerFn({ method: "POST" })
     };
 
     if (!key || flag === "false") {
-      console.log("[imagine] skipping — no key or disabled");
       const cards: ReferenceCard[] = options.slice(0, 3).map((option) => ({
         id: option.id,
         title: option.title,
@@ -159,8 +155,19 @@ export const referenceLooks = createServerFn({ method: "POST" })
       return { cards, skinSeen: skin, skinFromPhoto: !written && Boolean(skin) };
     }
 
-    const toGenerate = options.slice(0, Math.max(1, max));
-    console.log("[imagine] generating", toGenerate.length);
+    const wanted = Math.min(options.length, Math.max(1, max));
+    const { takeImageQuota } = await import("./guard.server");
+    const granted = await takeImageQuota(wanted);
+    if (granted === 0) {
+      const cards: ReferenceCard[] = options.slice(0, 3).map((option) => ({
+        id: option.id,
+        title: option.title,
+        line: option.line,
+        imageUrl: "",
+      }));
+      return { cards, skinSeen: skin, skinFromPhoto: !written && Boolean(skin), limited: true };
+    }
+    const toGenerate = options.slice(0, granted);
 
     const settled = await Promise.allSettled(
       toGenerate.map((option) =>

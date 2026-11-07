@@ -1,3 +1,6 @@
+import { useEffect, useState } from "react";
+import { ArrowRight, RefreshCw } from "lucide-react";
+import { LookPlaceholder, StepLabel } from "@/components/atelier/ui";
 import {
   DEPTH_LABEL,
   SHAPE_LABEL,
@@ -9,6 +12,30 @@ import {
 } from "@/lib/makeup/types";
 import type { ReferenceCard } from "@/lib/makeup/imagine";
 
+const WAITING = [
+  "Leyendo la forma de tu rostro…",
+  "Buscando tu subtono…",
+  "Eligiendo colores para la ocasión…",
+  "Aplicando el maquillaje a tu foto…",
+  "Dando los últimos retoques…",
+];
+
+function useWaitingLine(active: boolean) {
+  const [index, setIndex] = useState(0);
+  useEffect(() => {
+    if (!active) {
+      setIndex(0);
+      return;
+    }
+    const timer = window.setInterval(
+      () => setIndex((value) => Math.min(value + 1, WAITING.length - 1)),
+      4500,
+    );
+    return () => window.clearInterval(timer);
+  }, [active]);
+  return { line: WAITING[index], progress: (index + 1) / WAITING.length };
+}
+
 export function OptionsScreen({
   situation,
   read,
@@ -18,6 +45,7 @@ export function OptionsScreen({
   cards,
   loading,
   error,
+  limited,
   onRetry,
   onChoose,
 }: {
@@ -29,40 +57,81 @@ export function OptionsScreen({
   cards: ReferenceCard[] | null;
   loading: boolean;
   error: string | null;
+  limited: boolean;
   onRetry: () => void;
   onChoose: (card: ReferenceCard) => void;
 }) {
   const occasion = situationById(situation);
+  const waiting = useWaitingLine(loading && !cards);
+
   return (
-    <div className="mx-auto max-w-6xl px-4 pb-16 pt-8">
-      <p className="text-xs tracking-widest text-muted uppercase">Paso 3 de 3 · {occasion.label}</p>
-      <h1 className="mt-3 max-w-3xl text-4xl sm:text-5xl">Tus looks</h1>
-      <p className="mt-3 max-w-2xl text-muted">
-        Elige el que más se acerque a lo que buscas. Puedes ver los pasos después.
-      </p>
+    <main className="mx-auto max-w-md px-5 pb-16 pt-6">
+      <StepLabel step={4} extra={occasion.label} />
+      <h1 className="mt-3 text-4xl">Tus looks</h1>
+
+      {loading && !cards ? (
+        <div className="mt-4" aria-live="polite">
+          <p className="text-muted">{readingSkin ? waiting.line : "Preparando tus opciones…"}</p>
+          <div className="mt-3 h-1 overflow-hidden rounded-full bg-line/60">
+            <div
+              className="h-full rounded-full bg-blush transition-[width] duration-[4000ms] ease-out"
+              style={{ width: `${Math.round(waiting.progress * 92)}%` }}
+            />
+          </div>
+          <p className="mt-2 text-xs text-muted">Suele tardar entre 15 y 40 segundos.</p>
+        </div>
+      ) : (
+        <p className="mt-3 text-muted">
+          Elige el que más se acerque a lo que buscas. Después te enseño los pasos.
+        </p>
+      )}
 
       {read ? (
-        <p className="mt-4 max-w-2xl text-sm">
-          {SHAPE_LABEL[read.shape]} · {TONE_LABEL[read.undertone]} · {DEPTH_LABEL[read.depth]}.{" "}
+        <div className="mt-5 flex flex-wrap gap-2" aria-label="Lo que veo en tu foto">
+          {[SHAPE_LABEL[read.shape], TONE_LABEL[read.undertone], DEPTH_LABEL[read.depth]].map(
+            (label) => (
+              <span key={label} className="rounded-full bg-clay px-3 py-1 text-xs text-ink">
+                {label}
+              </span>
+            ),
+          )}
+        </div>
+      ) : (
+        <p className="mt-4 rounded-2xl bg-blush/10 px-4 py-3 text-sm text-blush">
+          No pude leer bien este rostro. Prueba con otra foto con más luz.
+        </p>
+      )}
+      {read ? (
+        <p className="mt-3 text-sm text-muted">
           {SHAPE_NOTE[read.shape]}
           {summary ? ` ${summary}.` : ""}
         </p>
-      ) : (
-        <p className="mt-4 text-sm text-blush">No pude leer bien este rostro. Prueba con otra foto.</p>
-      )}
-
-      {skinLine ? <p className="mt-2 max-w-2xl text-sm">{skinLine}</p> : null}
+      ) : null}
+      {skinLine ? <p className="mt-2 text-sm text-muted">{skinLine}</p> : null}
 
       {error ? (
-        <div className="mt-6 rounded-2xl border border-blush/30 bg-blush/5 p-4">
-          <p className="text-sm text-blush">{error}</p>
-          <button type="button" onClick={onRetry} className="mt-3 min-h-11 rounded-full bg-ink px-5 text-surface">
+        <div className="mt-6 rounded-2xl border border-blush/30 bg-blush/5 p-4" role="alert">
+          <p className="text-sm text-blush">
+            No pude crear las imágenes esta vez. Puedes seguir con los pasos o reintentarlo.
+          </p>
+          <button
+            type="button"
+            onClick={onRetry}
+            className="mt-3 inline-flex min-h-11 items-center gap-2 rounded-full bg-ink px-5 text-surface"
+          >
+            <RefreshCw className="size-4" aria-hidden="true" />
             Reintentar
           </button>
         </div>
       ) : null}
+      {limited ? (
+        <p className="mt-6 rounded-2xl bg-clay px-4 py-3 text-sm text-ink">
+          Hoy ya has creado muchas imágenes, así que te enseño los looks sin foto. Los pasos y
+          productos siguen siendo para ti. Mañana podrás volver a ver las referencias.
+        </p>
+      ) : null}
 
-      <div className="mt-8 grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+      <div className="mt-6 flex flex-col gap-5">
         {cards
           ? cards.map((item) => (
               <button
@@ -70,40 +139,44 @@ export function OptionsScreen({
                 type="button"
                 data-testid={`option-${item.id}`}
                 onClick={() => onChoose(item)}
-                className="overflow-hidden rounded-2xl border border-line bg-surface text-left transition hover:border-blush"
+                className="soft-card tap-card group overflow-hidden text-left"
               >
                 {item.imageUrl ? (
-                  <img src={item.imageUrl} alt="" className="frame-portrait w-full object-cover" />
+                  <img
+                    src={item.imageUrl}
+                    alt={`Referencia del look ${item.title}`}
+                    className="frame-portrait w-full object-cover"
+                  />
                 ) : (
-                  <div className="frame-portrait flex items-center justify-center bg-clay/30">
-                    <span className="text-sm text-muted">Referencia visual no disponible</span>
-                  </div>
+                  <LookPlaceholder title={item.title} compact />
                 )}
-                <span className="block px-4 py-4">
-                  <span className="block font-display text-2xl">{item.title}</span>
-                  <span className="mt-1 block text-sm text-muted">{item.line}</span>
+                <span className="flex items-center justify-between gap-3 px-4 py-4">
+                  <span>
+                    <span className="block font-display text-2xl">{item.title}</span>
+                    <span className="mt-1 block text-sm text-muted">{item.line}</span>
+                  </span>
+                  <span className="grid size-10 shrink-0 place-items-center rounded-full bg-ink text-surface transition-transform duration-200 group-hover:translate-x-0.5">
+                    <ArrowRight className="size-4" aria-hidden="true" />
+                  </span>
                 </span>
               </button>
             ))
           : loading
             ? [0, 1, 2].map((item) => (
-                <div key={item} className="overflow-hidden rounded-2xl border border-line bg-surface">
-                  <div className="frame-portrait animate-pulse bg-clay/40" />
-                  <p className="px-4 py-4 text-sm text-muted">
-                    {item === 0
-                      ? readingSkin
-                        ? "Analizando tu rostro…"
-                        : "Preparando tus opciones…"
-                      : "Generando otra opción…"}
-                  </p>
+                <div key={item} className="soft-card overflow-hidden" aria-hidden="true">
+                  <div className="frame-portrait skeleton" />
+                  <div className="space-y-2 px-4 py-4">
+                    <span className="skeleton block h-5 w-1/2 rounded" />
+                    <span className="skeleton block h-3 w-3/4 rounded" />
+                  </div>
                 </div>
               ))
             : null}
       </div>
 
-      <p className="mt-6 text-sm text-muted">
+      <p className="mt-6 text-center text-xs text-muted">
         La foto no se guarda. Se usa solo para crear estas referencias.
       </p>
-    </div>
+    </main>
   );
 }
