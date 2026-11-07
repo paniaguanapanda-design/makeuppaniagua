@@ -2,10 +2,10 @@ import { useEffect, useState } from "react";
 import { ChevronDown } from "lucide-react";
 import { StepLabel } from "@/components/atelier/ui";
 import {
-  AGES,
+  AGE_YEARS,
   TASTES,
+  ageFromYears,
   composeNote,
-  type AgeId,
   type KitField,
   type PersonBrief,
   type TasteId,
@@ -37,7 +37,7 @@ const FIELDS: { id: KitField; label: string; placeholder: string }[] = [
 ];
 
 export type KitDraft = {
-  age: AgeId | null;
+  years?: number | null;
   tastes: TasteId[];
   kit: Record<KitField, string>;
   skin: string;
@@ -54,7 +54,7 @@ export function KitScreen({
   onDraft: (draft: KitDraft) => void;
   onContinue: (person: PersonBrief) => void;
 }) {
-  const [age, setAge] = useState<AgeId | null>(initial?.age ?? null);
+  const [years, setYears] = useState<number | null>(initial?.years ?? null);
   const [tastes, setTastes] = useState<TasteId[]>(initial?.tastes ?? []);
   const [kit, setKit] = useState(initial?.kit ?? EMPTY_KIT);
   const [skin, setSkin] = useState(initial?.skin ?? "");
@@ -62,8 +62,8 @@ export function KitScreen({
   const [open, setOpen] = useState(filled > 0);
 
   useEffect(() => {
-    onDraft({ age, tastes, kit, skin });
-  }, [age, tastes, kit, skin, onDraft]);
+    onDraft({ years, tastes, kit, skin });
+  }, [years, tastes, kit, skin, onDraft]);
 
   function toggleTaste(id: TasteId) {
     setTastes((current) =>
@@ -72,7 +72,7 @@ export function KitScreen({
   }
 
   function go() {
-    if (!age) return;
+    if (!years) return;
     const next = {
       base: kit.base.trim().slice(0, 240),
       ojos: kit.ojos.trim().slice(0, 240),
@@ -80,7 +80,8 @@ export function KitScreen({
       resto: kit.resto.trim().slice(0, 240),
     };
     onContinue({
-      age,
+      age: ageFromYears(years),
+      years,
       tastes,
       kit: next,
       skin: skin.trim().slice(0, 300),
@@ -92,35 +93,37 @@ export function KitScreen({
     <main className="mx-auto max-w-md px-5 pb-32 pt-6">
       <StepLabel step={2} />
       <h1 className="mt-3 text-4xl">Cuéntame de ti</h1>
-      <p className="mt-3 text-muted">Solo la edad es necesaria. Lo demás afina el resultado.</p>
+      <p className="mt-3 text-muted">Solo la edad es necesaria. Lo demás ayuda a afinar tu look.</p>
       {remembered ? (
         <p className="mt-3 rounded-2xl bg-blush/10 px-4 py-3 text-sm text-ink">
           He recordado tus respuestas de la última vez. Cambia lo que quieras.
         </p>
       ) : null}
 
-      <fieldset className="mt-8">
-        <legend className="font-display text-2xl">Edad</legend>
-        <div className="mt-3 grid grid-cols-2 gap-2">
-          {AGES.map((item) => {
-            const on = age === item.id;
-            return (
-              <button
-                key={item.id}
-                type="button"
-                aria-pressed={on}
-                onClick={() => setAge(item.id)}
-                className={`select-tile min-h-12 rounded-2xl border px-4 py-3 text-left ${on ? "is-on" : ""}`}
-              >
-                <span className="block font-medium">{item.label}</span>
-              </button>
-            );
-          })}
-        </div>
-        {age ? (
-          <p className="mt-3 text-sm text-muted">{AGES.find((item) => item.id === age)?.line}</p>
-        ) : null}
-      </fieldset>
+      <label className="mt-8 block">
+        <span className="font-display text-2xl">Tu edad</span>
+        <span className="mt-1 block text-sm text-muted">
+          Solo la usa tu maquilladora. No se muestra a nadie.
+        </span>
+        <span className="relative mt-3 block">
+          <select
+            value={years ?? ""}
+            onChange={(event) => setYears(event.target.value ? Number(event.target.value) : null)}
+            className="age-select w-full appearance-none rounded-2xl border border-line bg-surface px-4 py-3.5 pr-12 text-base"
+          >
+            <option value="">Elige tu edad</option>
+            {AGE_YEARS.map((value) => (
+              <option key={value} value={value}>
+                {value} años
+              </option>
+            ))}
+          </select>
+          <ChevronDown
+            className="pointer-events-none absolute top-1/2 right-4 size-5 -translate-y-1/2 text-muted"
+            aria-hidden="true"
+          />
+        </span>
+      </label>
 
       <fieldset className="mt-8">
         <legend className="font-display text-2xl">Qué te gusta</legend>
@@ -199,11 +202,11 @@ export function KitScreen({
         <button
           type="button"
           data-testid="kit-continue"
-          disabled={!age}
+          disabled={!years}
           onClick={go}
           className="w-full min-h-14 rounded-full bg-ink text-base text-surface"
         >
-          {age ? "Seguir" : "Elige tu edad para seguir"}
+          {years ? "Seguir" : "Elige tu edad para seguir"}
         </button>
       </div>
     </main>

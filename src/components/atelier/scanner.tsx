@@ -167,8 +167,8 @@ export function ScannerScreen({ onCapture }: { onCapture: (capture: Capture) => 
       <StepLabel step={3} />
       <h1 className="mt-3 text-4xl">Deja que te vea</h1>
       <p className="mt-3 text-muted">
-        Mira a la cámara con luz de frente. En cuanto encuentro tu cara, preparo tus looks. La foto
-        no se guarda.
+        Mira a la cámara con luz de frente. Analizo tu rostro y tu piel como lo haría una
+        maquilladora y te propongo tres looks.
       </p>
 
       <div className="relative mt-6 overflow-hidden rounded-[1.5rem] border border-line">

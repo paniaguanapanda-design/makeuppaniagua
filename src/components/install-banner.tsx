@@ -30,8 +30,18 @@ export function InstallBanner({ ready }: { ready: boolean }) {
     return () => window.removeEventListener("beforeinstallprompt", handler);
   }, []);
 
+  const visible = !isStandalone && !dismissed && ready;
+
+  // Avisa al resto de la página de cuánto ocupa, para que nada quede debajo.
+  useEffect(() => {
+    document.documentElement.style.setProperty("--install-h", visible ? "7rem" : "0px");
+    return () => {
+      document.documentElement.style.setProperty("--install-h", "0px");
+    };
+  }, [visible]);
+
   // No mostrar si ya está instalada o si el usuario la cerró
-  if (isStandalone || dismissed || !ready) return null;
+  if (!visible) return null;
 
   function close() {
     dismissInstall();

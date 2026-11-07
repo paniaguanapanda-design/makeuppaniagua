@@ -8,11 +8,16 @@ import { FeedbackScreen } from "@/components/atelier/feedback";
 import { LooksScreen } from "@/components/atelier/looks";
 import { FLOW, FlowProgress } from "@/components/atelier/ui";
 import { InstallBanner } from "@/components/install-banner";
-import { referenceLooks, type ReferenceCard, type ReferenceResult } from "@/lib/makeup/imagine";
+import {
+  referenceLooks,
+  type FaceAnalysis,
+  type ReferenceCard,
+  type ReferenceResult,
+} from "@/lib/makeup/imagine";
 import { loadProfile, saveLook, saveProfile } from "@/lib/makeup/memory";
 import { jpegDataUrl } from "@/lib/makeup/photo";
 import { noteZones, personLine, type PersonBrief } from "@/lib/makeup/profile";
-import { optionById, visibleZones, type OptionId } from "@/lib/makeup/references";
+import { optionById, optionsFor, visibleZones, type OptionId } from "@/lib/makeup/references";
 import { getDirectory, recommendLook } from "@/lib/makeup/server";
 import type { Capture, Directory, LookPlan, SituationId } from "@/lib/makeup/types";
 import { ArrowLeft, Bookmark, Check, Heart, Share2, Users } from "lucide-react";
@@ -57,6 +62,7 @@ export function AtelierApp() {
   const [remembered, setRemembered] = useState<PersonBrief | null>(null);
   const [kitDraft, setKitDraft] = useState<KitDraft | null>(null);
   const [seen, setSeen] = useState({ skin: "", fromPhoto: false });
+  const [analysis, setAnalysis] = useState<FaceAnalysis | null>(null);
   const [savedId, setSavedId] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
 
@@ -148,19 +154,19 @@ export function AtelierApp() {
         situation,
         undertone: read?.undertone ?? "neutro",
         depth: read?.depth ?? "media",
-        shape: read?.shape ?? "ovalado",
+        shape: analysis?.shape ?? read?.shape ?? "ovalado",
         owned: [],
         age: profile?.age ?? "joven",
         tastes: profile?.tastes ?? [],
         note: profile?.note ?? "",
-        skin: profile?.skin || seen.skin,
+        skin: [profile?.skin, seen.skin].filter(Boolean).join(". En la foto: ").slice(0, 300),
       },
     })
       .then((data) => setPlan(data))
       .catch((error: unknown) => {
         setPlanError(error instanceof Error ? error.message : "No pude armar el look.");
       });
-  }, [situation, capture, profile, seen.skin]);
+  }, [situation, capture, profile, seen.skin, analysis]);
 
   useEffect(() => {
     loadDirectory();
@@ -189,6 +195,7 @@ export function AtelierApp() {
           tastes: profile?.tastes ?? [],
           note: profile?.note ?? "",
           skin: profile?.skin ?? "",
+          years: profile?.years,
           photo: jpegDataUrl(capture.photo),
         },
       });
@@ -201,6 +208,7 @@ export function AtelierApp() {
         setCards(data.cards);
         setLimited(Boolean(data.limited));
         setSeen({ skin: data.skinSeen, fromPhoto: data.skinFromPhoto });
+        setAnalysis(data.analysis);
         setCardsError(null);
       })
       .catch((error: unknown) => {
@@ -208,9 +216,12 @@ export function AtelierApp() {
         if (!alive) return;
         setCardsError(error instanceof Error ? error.message : "No pude crear las referencias.");
         setCards([
-          { id: "piel", title: "Mínimo", line: "Casi sin maquillaje", imageUrl: "" },
-          { id: "natural", title: "Natural", line: "Piel luminosa y ligera", imageUrl: "" },
-          { id: "definido", title: "Definido", line: "Más presencia sin cargar", imageUrl: "" },
+          ...optionsFor(situation).map((option) => ({
+            id: option.id,
+            title: option.title,
+            line: option.line,
+            imageUrl: "",
+          })),
         ]);
       })
       .finally(() => {
@@ -317,14 +328,7 @@ export function AtelierApp() {
       </header>
 
       <div key={view} className="view-enter">
-        {view === "home" && (
-          <HomeScreen
-            catalogError={catalogError}
-            onStart={() => go("occasion")}
-            onDirectory={() => go("directory")}
-            onLooks={() => go("looks")}
-          />
-        )}
+        {view === "home" && <HomeScreen onStart={() => go("occasion")} />}
         {view === "occasion" && (
           <OccasionScreen
             selected={situation}
@@ -366,6 +370,7 @@ export function AtelierApp() {
               setChosen(null);
               setLimited(false);
               setSeen({ skin: "", fromPhoto: false });
+              setAnalysis(null);
               setShot((v) => v + 1);
               go("options");
             }}
@@ -375,6 +380,7 @@ export function AtelierApp() {
           <OptionsScreen
             situation={situation}
             read={capture?.read ?? null}
+            analysis={analysis}
             summary={profile ? personLine(profile) : ""}
             skinLine={
               profile?.skin
@@ -455,6 +461,8 @@ export function AtelierApp() {
           <FeedbackScreen
             situation={situation ?? ""}
             look={chosen?.title ?? ""}
+            lookImage={chosen?.imageUrl ?? ""}
+            photo={capture?.source === "camera" ? jpegDataUrl(capture.photo) : ""}
             source={capture?.source ?? ""}
             onDone={() => go("home")}
           />

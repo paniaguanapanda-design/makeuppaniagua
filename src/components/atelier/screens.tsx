@@ -1,16 +1,13 @@
 import {
   Aperture,
   ArrowRight,
-  Bookmark,
   Briefcase,
-  Camera,
   Flower2,
   Gem,
   Heart,
   MapPin,
   Mic,
   Moon,
-  Sparkles,
   Sun,
   type LucideIcon,
 } from "lucide-react";
@@ -28,85 +25,32 @@ const ICONS: Record<SituationId, LucideIcon> = {
   editorial: Gem,
 };
 
-const PROMISES: { icon: LucideIcon; text: string }[] = [
-  { icon: Sparkles, text: "Elige la ocasión" },
-  { icon: Camera, text: "Hazte una foto" },
-  { icon: Heart, text: "Recibe tu look paso a paso" },
-];
-
-export function HomeScreen({
-  catalogError,
-  onStart,
-  onDirectory,
-  onLooks,
-}: {
-  catalogError: string | null;
-  onStart: () => void;
-  onDirectory: () => void;
-  onLooks: () => void;
-}) {
+export function HomeScreen({ onStart }: { onStart: () => void }) {
   return (
-    <main data-testid="home" className="mx-auto flex max-w-md flex-col px-5 pb-16 pt-4">
-      <figure className="relative mx-auto w-full overflow-hidden rounded-[1.75rem]">
+    <main data-testid="home" className="home-hero mx-auto flex max-w-md flex-col px-5 pt-4 pb-10">
+      <figure className="relative w-full flex-1 overflow-hidden rounded-[1.75rem]">
         <img
           src="/studio/olivo.jpg"
           alt="Retrato de una mujer con maquillaje natural y luminoso"
-          className="h-80 w-full object-cover object-[center_30%]"
+          className="absolute inset-0 h-full w-full object-cover object-[center_25%]"
           fetchPriority="high"
         />
-        <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-bg via-bg/70 to-transparent" />
-      </figure>
-
-      <div className="relative z-10 -mt-20 px-2 text-center">
-        <h1 className="font-display text-[2.75rem] leading-[1.05] tracking-tight text-ink">
+        <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-bg via-bg/60 to-transparent" />
+        <h1 className="absolute inset-x-0 bottom-6 px-4 text-center font-display text-[2.9rem] leading-[1.03] tracking-tight text-ink">
           Tu look,
           <br />a tu medida
         </h1>
+      </figure>
 
-        <div
-          className="mx-auto mt-5 flex items-center justify-center gap-3 text-blush"
-          aria-hidden="true"
-        >
-          <span className="h-px w-10 bg-blush/40" />
-          <Heart className="size-4" strokeWidth={1.75} />
-          <span className="h-px w-10 bg-blush/40" />
-        </div>
-
-        <ol className="mx-auto mt-6 flex max-w-xs flex-col gap-3 text-left">
-          {PROMISES.map(({ icon: Icon, text }, index) => (
-            <li key={text} className="flex items-center gap-3 text-sm text-ink">
-              <span className="grid size-8 shrink-0 place-items-center rounded-full bg-blush/10 text-blush">
-                <Icon className="size-4" strokeWidth={1.75} aria-hidden="true" />
-              </span>
-              <span>
-                <span className="text-muted">{index + 1}.</span> {text}
-              </span>
-            </li>
-          ))}
-        </ol>
-
-        <button
-          type="button"
-          data-testid="start"
-          onClick={onStart}
-          className="mt-8 flex min-h-14 w-full items-center justify-center gap-2 rounded-full bg-ink text-lg text-surface"
-        >
-          Empezar
-          <ArrowRight className="size-5" aria-hidden="true" />
-        </button>
-        <p className="mt-3 text-xs text-muted">Unos 2 minutos · Tu foto no se guarda</p>
-
-        <div className="mt-6 flex items-center justify-center gap-2">
-          <button type="button" onClick={onLooks} className="chip-button">
-            <Bookmark className="size-4" aria-hidden="true" />
-            Mis looks
-          </button>
-          <button type="button" onClick={onDirectory} className="chip-button">
-            Estilistas
-          </button>
-        </div>
-        {catalogError ? <p className="mt-4 text-xs text-blush">{catalogError}</p> : null}
-      </div>
+      <button
+        type="button"
+        data-testid="start"
+        onClick={onStart}
+        className="mt-6 flex min-h-14 w-full items-center justify-center gap-2 rounded-full bg-ink text-lg text-surface"
+      >
+        Empezar
+        <ArrowRight className="size-5" aria-hidden="true" />
+      </button>
     </main>
   );
 }

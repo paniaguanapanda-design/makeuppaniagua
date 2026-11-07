@@ -10,7 +10,7 @@ import {
   type SituationId,
   situationById,
 } from "@/lib/makeup/types";
-import type { ReferenceCard } from "@/lib/makeup/imagine";
+import type { FaceAnalysis, ReferenceCard } from "@/lib/makeup/imagine";
 
 const WAITING = [
   "Leyendo la forma de tu rostro…",
@@ -39,6 +39,7 @@ function useWaitingLine(active: boolean) {
 export function OptionsScreen({
   situation,
   read,
+  analysis,
   summary,
   skinLine,
   readingSkin,
@@ -51,6 +52,7 @@ export function OptionsScreen({
 }: {
   situation: SituationId;
   read: FaceRead | null;
+  analysis: FaceAnalysis | null;
   summary: string;
   skinLine: string;
   readingSkin: boolean;
@@ -82,11 +84,63 @@ export function OptionsScreen({
         </div>
       ) : (
         <p className="mt-3 text-muted">
-          Elige el que más se acerque a lo que buscas. Después te enseño los pasos.
+          Tres niveles pensados para tu rostro: natural, medio y glamuroso. Elige uno y te enseño
+          los pasos.
         </p>
       )}
 
-      {read ? (
+      {analysis ? (
+        <section className="soft-card mt-5 p-4" aria-label="Análisis de tu maquilladora">
+          <p className="text-xs font-medium tracking-widest text-blush uppercase">
+            Lo que veo como maquilladora
+          </p>
+          <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
+            <div>
+              <dt className="text-xs text-muted">Rostro</dt>
+              <dd className="font-medium">
+                {SHAPE_LABEL[analysis.shape ?? read?.shape ?? "ovalado"]}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-xs text-muted">Piel</dt>
+              <dd className="font-medium capitalize">{analysis.skinType || "—"}</dd>
+            </div>
+            <div>
+              <dt className="text-xs text-muted">Ojeras</dt>
+              <dd className="font-medium capitalize">{analysis.darkCircles}</dd>
+            </div>
+            {read ? (
+              <div>
+                <dt className="text-xs text-muted">Tono</dt>
+                <dd className="font-medium">
+                  {TONE_LABEL[read.undertone]} · {DEPTH_LABEL[read.depth]}
+                </dd>
+              </div>
+            ) : null}
+          </dl>
+          {analysis.quality ? <p className="mt-3 text-sm text-muted">{analysis.quality}</p> : null}
+          {analysis.concerns.length ? (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {analysis.concerns.map((item) => (
+                <span
+                  key={item}
+                  className="rounded-full bg-clay px-3 py-1 text-xs capitalize text-ink"
+                >
+                  {item}
+                </span>
+              ))}
+            </div>
+          ) : null}
+          {analysis.advice ? (
+            <p className="mt-3 border-t border-line pt-3 font-display text-lg leading-snug">
+              «{analysis.advice}»
+            </p>
+          ) : null}
+          <p className="mt-2 text-[11px] text-muted">
+            Orientación de maquillaje, no un diagnóstico.
+          </p>
+        </section>
+      ) : read ? (
         <div className="mt-5 flex flex-wrap gap-2" aria-label="Lo que veo en tu foto">
           {[SHAPE_LABEL[read.shape], TONE_LABEL[read.undertone], DEPTH_LABEL[read.depth]].map(
             (label) => (
@@ -96,18 +150,18 @@ export function OptionsScreen({
             ),
           )}
         </div>
-      ) : (
+      ) : !loading ? (
         <p className="mt-4 rounded-2xl bg-blush/10 px-4 py-3 text-sm text-blush">
           No pude leer bien este rostro. Prueba con otra foto con más luz.
         </p>
-      )}
-      {read ? (
+      ) : null}
+      {read && !analysis && !loading ? (
         <p className="mt-3 text-sm text-muted">
           {SHAPE_NOTE[read.shape]}
           {summary ? ` ${summary}.` : ""}
         </p>
       ) : null}
-      {skinLine ? <p className="mt-2 text-sm text-muted">{skinLine}</p> : null}
+      {skinLine && !analysis ? <p className="mt-2 text-sm text-muted">{skinLine}</p> : null}
 
       {error ? (
         <div className="mt-6 rounded-2xl border border-blush/30 bg-blush/5 p-4" role="alert">
@@ -175,7 +229,8 @@ export function OptionsScreen({
       </div>
 
       <p className="mt-6 text-center text-xs text-muted">
-        La foto no se guarda. Se usa solo para crear estas referencias.
+        Tu foto solo se usa para crear estas referencias. No se guarda salvo que nos dejes tu reseña
+        y lo autorices.
       </p>
     </main>
   );
