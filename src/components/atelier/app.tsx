@@ -1,6 +1,5 @@
 import { FeedbackForm } from "@/components/atelier/feedback";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { InstallPrompt } from "@/components/install-prompt";
 import { KitScreen } from "@/components/atelier/kit";
 import { DirectoryScreen, HomeScreen, OccasionScreen } from "@/components/atelier/screens";
 import { OptionsScreen } from "@/components/atelier/options";
@@ -227,7 +226,6 @@ export function AtelierApp() {
             aria-label="Navegación principal"
             className="flex flex-wrap items-center justify-end gap-1"
           >
-            <InstallPrompt />
             <button
               type="button"
               onClick={() => setView("feedback")}
