@@ -57,7 +57,6 @@ export function AtelierApp() {
   const [remembered, setRemembered] = useState<PersonBrief | null>(null);
   const [kitDraft, setKitDraft] = useState<KitDraft | null>(null);
   const [seen, setSeen] = useState({ skin: "", fromPhoto: false });
-  const [reachedLook, setReachedLook] = useState(false);
   const [savedId, setSavedId] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
 
@@ -168,10 +167,7 @@ export function AtelierApp() {
   }, [loadDirectory]);
 
   useEffect(() => {
-    if (view === "steps") {
-      setReachedLook(true);
-      if (!plan) loadPlan();
-    }
+    if (view === "steps" && !plan) loadPlan();
   }, [view, plan, loadPlan]);
 
   useEffect(() => {
@@ -480,7 +476,9 @@ export function AtelierApp() {
         ) : null}
       </div>
 
-      <InstallBanner ready={reachedLook && (view === "home" || view === "looks")} />
+      {/* Web app: la invitación a instalar aparece nada más entrar. Se oculta solo
+          donde hay una barra fija abajo, para no tapar el botón principal. */}
+      <InstallBanner ready={view !== "kit"} />
     </div>
   );
 }

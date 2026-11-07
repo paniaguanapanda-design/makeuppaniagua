@@ -7,7 +7,7 @@ type BeforeInstallPromptEvent = Event & {
   userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
 };
 
-/** Solo aparece cuando ya ha visto su primer look: nunca tapa el primer paso. */
+/** Invitación a instalar la web app. Reserva su propio espacio para no tapar contenido. */
 export function InstallBanner({ ready }: { ready: boolean }) {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [dismissed, setDismissed] = useState(false);
