@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import { OPTION_IDS, optionById } from "@/lib/makeup/references";
 import { getSql } from "@/lib/db";
 import { noteMatchesProduct, type AgeId, type TasteId } from "@/lib/makeup/profile";
 import {
@@ -15,6 +16,7 @@ import {
   type Undertone,
   type ZoneId,
   ZONES,
+  ZONE_LABEL,
 } from "@/lib/makeup/types";
 
 const situationSchema = z.enum([
@@ -30,6 +32,7 @@ const situationSchema = z.enum([
 
 const recommendSchema = z.object({
   situation: situationSchema,
+  optionId: z.enum(OPTION_IDS).optional(),
   undertone: z.enum(["calido", "frio", "neutro"]),
   depth: z.enum(["clara", "media", "profunda"]),
   shape: z.enum(["ovalado", "redondo", "cuadrado", "corazon", "alargado"]),
@@ -297,6 +300,7 @@ export const getDirectory = createServerFn({ method: "GET" }).handler(
 export const recommendLook = createServerFn({ method: "POST" })
   .validator(recommendSchema)
   .handler(async ({ data }): Promise<LookPlan> => {
+    const option = optionById(data.situation, data.optionId ?? "natural");
     const sql = await getSql();
     const looks = await sql<LookRow>`
       select l.id, l.situation, l.title, l.promise, l.mood, l.base_brand, l.intensities,
@@ -336,45 +340,50 @@ export const recommendLook = createServerFn({ method: "POST" })
     const tastes = data.tastes as TasteId[];
     const note = data.note;
     const skin = data.skin;
-    const steps: Step[] = stepRows.map((row) => {
-      const zone = ZONES.find((item) => item === row.zone);
-      if (!zone) throw new Error(`Zona desconocida: ${row.zone}`);
-      const authored = byId.get(row.product_id);
-      if (!authored) throw new Error(`Falta el producto ${row.product_id}`);
+    const recipeScore = (product: Product, preferBrand?: string) => {
+      const hint = option.productHints?.[product.category];
+      const matchesRecipe =
+        hint && new RegExp(hint, "i").test(`${product.shade} ${product.finish}`);
+      return (
+        scoreProduct(product, undertone, depth, owned, age, tastes, note, skin, preferBrand) +
+        (matchesRecipe ? 12 : 0)
+      );
+    };
+    const steps: Step[] = stepRows
+      .filter((row) => option.zones.includes(row.zone as ZoneId))
+      .map((row) => {
+        const zone = ZONES.find((item) => item === row.zone);
+        if (!zone) throw new Error(`Zona desconocida: ${row.zone}`);
+        const authored = byId.get(row.product_id);
+        if (!authored) throw new Error(`Falta el producto ${row.product_id}`);
 
-      let product = authored;
-      const prefer = REMAP_BRAND[zone];
-      if (prefer) {
-        const brandId = prefer === "look" ? look.base_brand : prefer;
-        const pool = products.filter((item) => item.category === zone);
-        const ranked = [...pool].sort(
-          (a, b) =>
-            scoreProduct(b, undertone, depth, owned, age, tastes, note, skin, brandId) -
-            scoreProduct(a, undertone, depth, owned, age, tastes, note, skin, brandId),
-        );
-        if (ranked[0]) product = ranked[0];
-      }
+        let product = authored;
+        const prefer = REMAP_BRAND[zone];
+        if (prefer || option.productHints?.[zone]) {
+          const brandId = prefer === "look" ? look.base_brand : prefer;
+          const pool = products.filter((item) => item.category === zone);
+          const ranked = [...pool].sort(
+            (a, b) => recipeScore(b, brandId) - recipeScore(a, brandId),
+          );
+          if (ranked[0]) product = ranked[0];
+        }
 
-      return {
-        order: Number(row.step_order),
-        zone,
-        title: row.title,
-        instruction: row.instruction,
-        product,
-        tension: hasTension(product, undertone),
-      };
-    });
+        return {
+          order: Number(row.step_order),
+          zone,
+          title: ZONE_LABEL[zone],
+          instruction: option.instructions?.[zone] ?? row.instruction,
+          product,
+          tension: hasTension(product, undertone),
+        };
+      });
 
     const alternates = {} as Record<ZoneId, Product[]>;
     for (const zone of ZONES) {
       const chosen = steps.find((step) => step.zone === zone)?.product;
       const ranked = products
         .filter((product) => product.category === zone)
-        .sort(
-          (a, b) =>
-            scoreProduct(b, undertone, depth, owned, age, tastes, note, skin) -
-            scoreProduct(a, undertone, depth, owned, age, tastes, note, skin),
-        );
+        .sort((a, b) => recipeScore(b) - recipeScore(a));
       const unique = chosen
         ? [chosen, ...ranked.filter((product) => product.id !== chosen.id)]
         : ranked;
@@ -384,8 +393,8 @@ export const recommendLook = createServerFn({ method: "POST" })
     return {
       id: look.id,
       situation: look.situation,
-      title: look.title,
-      promise: look.promise,
+      title: option.title,
+      promise: option.line,
       mood: look.mood,
       stylist: {
         id: look.stylist_id,

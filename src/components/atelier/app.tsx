@@ -39,6 +39,7 @@ export function AtelierApp() {
   const [seen, setSeen] = useState({ skin: "", fromPhoto: false });
   const upgraded = useRef(new Set<string>());
   const referenceJobs = useRef(new Map<string, Promise<ReferenceResult>>());
+  const planRequest = useRef(0);
   const shotRef = useRef(0);
   shotRef.current = shot;
 
@@ -55,13 +56,15 @@ export function AtelierApp() {
   }, []);
 
   const loadPlan = useCallback(() => {
-    if (!situation) return;
+    if (!situation || !chosen) return;
+    const request = ++planRequest.current;
     setPlan(null);
     setPlanError(null);
     const read = capture?.read;
     recommendLook({
       data: {
         situation,
+        optionId: chosen.id,
         undertone: read?.undertone ?? "neutro",
         depth: read?.depth ?? "media",
         shape: read?.shape ?? "ovalado",
@@ -72,11 +75,14 @@ export function AtelierApp() {
         skin: profile?.skin || seen.skin,
       },
     })
-      .then((data) => setPlan(data))
+      .then((data) => {
+        if (planRequest.current === request) setPlan(data);
+      })
       .catch((error: unknown) => {
-        setPlanError(error instanceof Error ? error.message : "No pude armar el look.");
+        if (planRequest.current === request)
+          setPlanError(error instanceof Error ? error.message : "No pude armar el look.");
       });
-  }, [situation, capture, profile, seen.skin]);
+  }, [situation, chosen, capture, profile, seen.skin]);
 
   useEffect(() => {
     loadDirectory();
@@ -126,7 +132,7 @@ export function AtelierApp() {
     const owned = noteZones(profile?.note ?? "");
     const jpeg = jpegDataUrl(capture.photo);
     for (const card of cards.filter((card) => !card.imageUrl && !card.error)) {
-      const id = `${shot}:${card.id}`;
+      const id = `${situation}:${shot}:${card.id}`;
       if (upgraded.current.has(id)) continue;
       upgraded.current.add(id);
       aiLook({
@@ -260,8 +266,16 @@ export function AtelierApp() {
       {view === "occasion" ? (
         <OccasionScreen
           onPick={(id) => {
+            // Invalidate in-flight edits immediately, before a new photo is taken.
+            shotRef.current += 1;
+            setShot(shotRef.current);
+            planRequest.current += 1;
             setSituation(id);
             setPlan(null);
+            setPlanError(null);
+            setCards(null);
+            setCardsError(null);
+            setChosen(null);
             setView("kit");
           }}
         />
@@ -310,7 +324,7 @@ export function AtelierApp() {
           onRetry={() => {
             if (cards?.some((card) => card.error)) {
               for (const card of cards.filter((card) => card.error))
-                upgraded.current.delete(`${shot}:${card.id}`);
+                upgraded.current.delete(`${situation}:${shot}:${card.id}`);
               setCards(cards.map((card) => ({ ...card, error: undefined })));
               return;
             }
@@ -319,6 +333,8 @@ export function AtelierApp() {
             setShot((value) => value + 1);
           }}
           onChoose={(card) => {
+            planRequest.current += 1;
+            setPlan(null);
             setChosen(card);
             setView("steps");
           }}

@@ -7,6 +7,7 @@ import test from "node:test";
 import ts from "typescript";
 import { renderToStaticMarkup } from "react-dom/server";
 import React from "react";
+import { PGlite } from "@electric-sql/pglite";
 
 const require = createRequire(import.meta.url);
 // Compile the real TS modules; replace only the server-function transport and network.
@@ -15,6 +16,7 @@ function harness(
   fetch = async () => {
     throw new Error("Unexpected fetch");
   },
+  imports = {},
 ) {
   const cache = new Map();
   function load(name) {
@@ -40,9 +42,11 @@ function harness(
         fetch,
         console: { warn() {} },
         require(id) {
+          if (id in imports) return imports[id];
           if (id === "@tanstack/react-start")
             return {
               createServerFn: () => ({
+                handler: (fn) => fn,
                 validator: (schema) => ({
                   handler: (fn) => (input) => fn({ data: schema.parse(input.data) }),
                 }),
@@ -205,5 +209,100 @@ test("each real edit requests complete makeup, not just retouching, even with a 
       call.prompt,
       /Almost no makeup|No blush|No eyeshadow|Very unsaturated|Every other area stays bare skin/,
     );
+  }
+});
+
+const situations = ["dia", "oficina", "entrevista", "cita", "boda", "fiesta", "fotos", "editorial"];
+
+test("regression: all 24 designs have different techniques, not just occasion names", () => {
+  const refs = harness()("lib/makeup/references.ts");
+  const recipes = situations.flatMap((situation) => refs.optionsFor(situation));
+  assert.equal(new Set(recipes.map((option) => JSON.stringify(option.instructions))).size, 24);
+  assert.equal(new Set(recipes.map((option) => option.line)).size, 24);
+  assert.equal(new Set(recipes.map((option) => option.title)).size, 24);
+  for (const option of recipes) {
+    assert.equal(option.zones.length, Object.keys(option.instructions).length);
+    for (const instruction of Object.values(option.instructions)) {
+      assert.ok(option.prompt.includes(instruction));
+    }
+  }
+  const office = refs.optionsFor("oficina");
+  assert.ok(office.every((option) => !option.instructions.ojos.includes("ahumado bronce")));
+  assert.match(refs.optionsFor("fiesta")[0].instructions.ojos, /ahumado bronce/);
+  assert.match(refs.optionsFor("editorial")[0].instructions.ojos, /línea flotante/);
+});
+
+test("real edit endpoint sends the selected occasion's recipe for every option", async () => {
+  const calls = [];
+  const load = harness({ XAI_API_KEY: "test-only" }, async (_url, init) => {
+    calls.push(JSON.parse(init.body));
+    return Response.json({ data: [{ b64_json: "Z3Jvaw==" }] });
+  });
+  for (const situation of situations) {
+    for (const option of load("lib/makeup/references.ts").optionsFor(situation)) {
+      const input = request(option.id);
+      input.data.situation = situation;
+      await load("lib/makeup/ai-look.ts").aiLook(input);
+      const call = calls.at(-1);
+      for (const instruction of Object.values(option.instructions)) {
+        assert.ok(call.prompt.includes(instruction));
+      }
+      assert.equal(call.image.url, photo);
+    }
+  }
+  assert.equal(calls.length, 24);
+  assert.equal(new Set(calls.map((call) => call.prompt)).size, 24);
+});
+
+test("selected recipe drives real DB recommendation steps, title and pigment suggestions", async () => {
+  const pg = new PGlite();
+  try {
+    for (const migration of ["0002_orla.sql", "0003_accesible.sql"]) {
+      await pg.exec(readFileSync(new URL(`../migrations/${migration}`, import.meta.url), "utf8"));
+    }
+    const sql = async (strings, ...values) => {
+      let text = strings[0];
+      for (let i = 0; i < values.length; i++) text += `$${i + 1}${strings[i + 1]}`;
+      return (await pg.query(text, values)).rows;
+    };
+    const load = harness({}, undefined, { "@/lib/db": { getSql: async () => sql } });
+    const refs = load("lib/makeup/references.ts");
+    const server = load("lib/makeup/server.ts");
+    const plans = [];
+    for (const situation of situations) {
+      for (const option of refs.optionsFor(situation)) {
+        const plan = await server.recommendLook({
+          data: {
+            situation,
+            optionId: option.id,
+            undertone: "neutro",
+            depth: "media",
+            shape: "ovalado",
+            owned: [],
+            age: "treinta",
+            tastes: [],
+            note: "",
+            skin: "",
+          },
+        });
+        assert.equal(plan.title, option.title);
+        assert.equal(plan.promise, option.line);
+        assert.equal(plan.steps.length, option.zones.length);
+        for (const step of plan.steps) {
+          assert.equal(step.instruction, option.instructions[step.zone]);
+          assert.equal(step.product.category, step.zone);
+          const hint = option.productHints[step.zone];
+          if (hint)
+            assert.match(`${step.product.shade} ${step.product.finish}`, new RegExp(hint, "i"));
+        }
+        plans.push(plan);
+      }
+    }
+    assert.equal(
+      new Set(plans.map((plan) => plan.steps.map((step) => step.instruction).join(" "))).size,
+      24,
+    );
+  } finally {
+    await pg.close();
   }
 });
