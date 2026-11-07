@@ -11,6 +11,8 @@ export const Route = createFileRoute("/resenas")({
 });
 
 const KEY = "neusta:admin-key";
+/** Marca UTF-8 para que Excel abra bien las tildes. */
+const BOM = String.fromCharCode(0xfeff);
 
 function csv(reviews: Review[]) {
   const head = [
@@ -84,7 +86,7 @@ function ReviewsPage() {
 
   function download() {
     if (!reviews) return;
-    const blob = new Blob([`﻿${csv(reviews)}`], { type: "text/csv;charset=utf-8" });
+    const blob = new Blob([BOM + csv(reviews)], { type: "text/csv;charset=utf-8" });
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
     link.download = "resenas-neusta.csv";

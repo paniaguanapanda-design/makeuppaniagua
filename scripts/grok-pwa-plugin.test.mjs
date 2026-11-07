@@ -21,6 +21,11 @@ import { renderInstallPage } from "./grok-pwa-plugin.mjs";
 
 const TEMPLATE_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 
+// Estos tests describen el comportamiento de la plantilla, no la marca de esta
+// app: se ejecutan en una carpeta vacía para que src/lib/og/site.json y
+// public/og.jpg del proyecto (título "NEUSTA", tarjeta propia) no los alteren.
+process.chdir(mkdtempSync(join(tmpdir(), "grok-pwa-test-")));
+
 test("injects before </head>", () => {
   const out = injectGrokPwaHead("<html><head><title>x</title></head><body></body></html>");
   assert.match(out, /rel="manifest"/);

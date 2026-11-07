@@ -1,7 +1,6 @@
 import { Sparkles } from "lucide-react";
 
-export const FLOW = ["occasion", "kit", "scan", "options", "steps"] as const;
-export const FLOW_LABEL = ["Ocasión", "Tu perfil", "Tu foto", "Tus looks", "Paso a paso"];
+import { FLOW, FLOW_LABEL } from "@/components/atelier/flow";
 
 /** Barra fina de progreso bajo la cabecera. */
 export function FlowProgress({ step }: { step: number }) {

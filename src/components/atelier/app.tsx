@@ -6,7 +6,8 @@ import { ScannerScreen } from "@/components/atelier/scanner";
 import { StepsScreen } from "@/components/atelier/steps";
 import { FeedbackScreen } from "@/components/atelier/feedback";
 import { LooksScreen } from "@/components/atelier/looks";
-import { FLOW, FlowProgress } from "@/components/atelier/ui";
+import { FLOW } from "@/components/atelier/flow";
+import { FlowProgress } from "@/components/atelier/ui";
 import { InstallBanner } from "@/components/install-banner";
 import {
   referenceLooks,
