@@ -296,7 +296,8 @@ test("selected recipe drives real DB recommendation steps, title and pigment sug
         assert.equal(plan.promise, option.line);
         assert.equal(plan.steps.length, option.zones.length);
         for (const step of plan.steps) {
-          assert.equal(step.instruction, option.instructions[step.zone]);
+          assert.ok(step.instruction.startsWith(option.instructions[step.zone]));
+          assert.ok(step.instruction.length > option.instructions[step.zone].length);
           assert.equal(step.product.category, step.zone);
           const hint = option.productHints[step.zone];
           if (hint)
@@ -312,4 +313,175 @@ test("selected recipe drives real DB recommendation steps, title and pigment sug
   } finally {
     await pg.close();
   }
+});
+
+const analysis = {
+  foto_utilizable: true,
+  advertencias: [],
+  forma_rostro: null,
+  subtono_piel: null,
+  forma_ojos: null,
+  paleta_recomendada: ["#A45C66"],
+  observaciones: "Luz suficiente; subtono incierto.",
+};
+const consultation = {
+  age: "silver",
+  tastes: ["mate", "labio"],
+  note: "Labial rojo que ya tengo",
+  skin: "",
+  minutes: "5",
+  intensity: "suave",
+  sensitivities: "Evito perfume",
+};
+
+test("vision request enforces the actual Zod schema, includes image, disables storage and accepts uncertainty", async () => {
+  const calls = [];
+  const load = harness({ XAI_API_KEY: "test-only" }, async (url, init) => {
+    calls.push({ url, body: JSON.parse(init.body) });
+    return Response.json({
+      choices: [{ finish_reason: "stop", message: { content: JSON.stringify(analysis) } }],
+    });
+  });
+  const result = await load("lib/makeup/analyze.ts").analyzePortrait({ data: { photo } });
+  assert.equal(result.subtono_piel, null);
+  assert.equal(result.forma_rostro, null);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, "https://api.x.ai/v1/chat/completions");
+  const body = calls[0].body;
+  assert.equal(body.store, false);
+  assert.equal(body.response_format.type, "json_schema");
+  assert.equal(body.response_format.json_schema.strict, true);
+  assert.equal(body.response_format.json_schema.schema.additionalProperties, false);
+  assert.equal(body.messages[1].content[1].image_url.url, photo);
+  assert.ok(!("edad_estimada" in body.response_format.json_schema.schema.properties));
+});
+
+test("invalid, extra, truncated or refused analysis never becomes fabricated data", async () => {
+  for (const value of [
+    { choices: [{ finish_reason: "stop", message: { content: "Here is your JSON: {}" } }] },
+    {
+      choices: [
+        {
+          finish_reason: "stop",
+          message: { content: JSON.stringify({ ...analysis, edad_estimada: 35 }) },
+        },
+      ],
+    },
+    {
+      choices: [
+        {
+          finish_reason: "stop",
+          message: { content: JSON.stringify({ ...analysis, paleta_recomendada: ["red"] }) },
+        },
+      ],
+    },
+    { choices: [{ finish_reason: "length", message: { content: JSON.stringify(analysis) } }] },
+    {
+      choices: [
+        { finish_reason: "stop", message: { refusal: "No", content: JSON.stringify(analysis) } },
+      ],
+    },
+  ]) {
+    const load = harness({ XAI_API_KEY: "test-only" }, async () => Response.json(value));
+    await assert.rejects(
+      load("lib/makeup/analyze.ts").analyzePortrait({ data: { photo } }),
+      /análisis válido/,
+    );
+  }
+});
+
+test("analysis errors are safe and disabled generation makes no vision request", async () => {
+  for (const status of [401, 429, 500]) {
+    const load = harness(
+      { XAI_API_KEY: "test-only" },
+      async () => new Response("private detail", { status }),
+    );
+    await assert.rejects(
+      load("lib/makeup/analyze.ts").analyzePortrait({ data: { photo } }),
+      (error) => error.message.includes(String(status)) && !error.message.includes("private"),
+    );
+  }
+  await assert.rejects(
+    harness({ XAI_API_KEY: "test-only", ENABLE_IMAGE_GEN: "false" })(
+      "lib/makeup/analyze.ts",
+    ).analyzePortrait({ data: { photo } }),
+    /desactivada/,
+  );
+});
+
+test("real image handler receives tastes, available products, time, intensity and sensitivities", async () => {
+  const calls = [];
+  const load = harness({ XAI_API_KEY: "test-only" }, async (_url, init) => {
+    calls.push(JSON.parse(init.body));
+    return Response.json({ data: [{ b64_json: "Z3Jvaw==" }] });
+  });
+  const input = request("natural");
+  input.data.consultation = consultation;
+  input.data.analysis = analysis;
+  await load("lib/makeup/ai-look.ts").aiLook(input);
+  const prompt = calls[0].prompt;
+  assert.ok(prompt.includes(JSON.stringify(consultation)));
+  assert.match(prompt, /Available time: 5 minutes/);
+  assert.match(prompt, /Requested intensity: suave/);
+  assert.match(prompt, /not defects/);
+  assert.match(prompt, /Do not infer allergies/);
+  assert.match(prompt, /same face, age, identity/);
+  assert.doesNotMatch(prompt, /Round face: lift|Square face: soften/);
+  input.data.analysis = { ...analysis, foto_utilizable: false };
+  await assert.rejects(load("lib/makeup/ai-look.ts").aiLook(input), /otra foto/);
+  assert.equal(calls.length, 1);
+});
+
+test("professional steps keep the chosen recipe and add tools, quantity and requested effort", () => {
+  const { applicationInstruction } = harness()("lib/makeup/consultation.ts");
+  const quick = applicationInstruction("base", "Base satinada.", consultation);
+  assert.match(quick, /^Base satinada/);
+  assert.match(quick, /una gota/);
+  assert.match(quick, /esponja/);
+  assert.match(quick, /Versión rápida/);
+  assert.match(quick, /translúcida/);
+  const detailed = applicationInstruction("labios", "Labio rojo.", {
+    minutes: "30",
+    intensity: "intensa",
+  });
+  assert.match(detailed, /capa fina/);
+  assert.doesNotMatch(detailed, /Versión rápida/);
+});
+
+test("consultation fields retain previous choices and uncertain analysis is not presented as a measurement", () => {
+  const load = harness();
+  const { KitScreen } = load("components/atelier/kit.tsx");
+  const html = renderToStaticMarkup(
+    React.createElement(KitScreen, {
+      initial: { ...consultation, kit: { base: "BB", ojos: "", labios: "Rojo", resto: "" } },
+      onContinue() {},
+    }),
+  );
+  assert.match(html, /Tiempo disponible/);
+  assert.match(html, /value="5" selected/);
+  assert.match(html, /value="suave" selected/);
+  assert.match(html, /Evito perfume/);
+  assert.match(html, />BB<\/textarea>/);
+  const { OptionsScreen } = load("components/atelier/options.tsx");
+  const result = renderToStaticMarkup(
+    React.createElement(OptionsScreen, {
+      situation: "boda",
+      read: { shape: "redondo", undertone: "calido", depth: "media" },
+      analysis,
+      summary: "",
+      skinLine: "",
+      readingSkin: false,
+      cards: [],
+      loading: false,
+      error: null,
+      onRetry() {},
+      onChoose() {},
+      onRetake() {},
+    }),
+  );
+  assert.match(result, /Subtono sin confirmar/);
+  assert.match(result, /Forma sin confirmar/);
+  assert.doesNotMatch(result, /Redondo|Cálido/);
+  assert.match(result, /Usar otra foto/);
+  assert.match(result, /#A45C66/);
 });

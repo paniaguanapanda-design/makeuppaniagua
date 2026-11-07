@@ -5,6 +5,8 @@ import { imageApiError, imageGenerationConfig } from "@/lib/makeup/image-config"
 import { optionsFor, referencePrompt } from "@/lib/makeup/references";
 import type { SituationId, ZoneId } from "@/lib/makeup/types";
 
+import { analysisSchema, consultationSchema, consultationPrompt } from "@/lib/makeup/consultation";
+
 const schema = z.object({
   situation: z.enum([
     "dia",
@@ -25,6 +27,8 @@ const schema = z.object({
       z.enum(["base", "cejas", "contorno", "rubor", "iluminador", "ojos", "labios", "fijador"]),
     )
     .max(8),
+  consultation: consultationSchema.optional(),
+  analysis: analysisSchema.optional(),
   photo: z.string().startsWith("data:image/jpeg;base64,").max(1_600_000),
 });
 
@@ -43,12 +47,22 @@ export const aiLook = createServerFn({ method: "POST" })
     }
     const option = optionsFor(data.situation as SituationId).find((o) => o.id === data.optionId);
     if (!option) throw new Error("look-desconocido");
-    const prompt = referencePrompt(
-      data.situation as SituationId,
-      option,
-      { shape: data.shape, undertone: data.undertone, depth: data.depth, skinHex: "#000000" },
-      data.owned as ZoneId[],
-    );
+    if (data.analysis && !data.analysis.foto_utilizable)
+      throw new Error("Usa otra foto con un rostro visible y buena luz.");
+    const prompt = [
+      referencePrompt(
+        data.situation as SituationId,
+        option,
+        { shape: data.shape, undertone: data.undertone, depth: data.depth, skinHex: "#000000" },
+        data.owned as ZoneId[],
+      ),
+      data.consultation ? consultationPrompt(data.consultation) : "",
+      data.analysis
+        ? `Orientative visual observations, not mandatory correction rules: ${JSON.stringify(data.analysis)}. Prefer null to invented certainty. Preserve the original skin color.`
+        : "",
+    ]
+      .filter(Boolean)
+      .join(" ");
     let edit: Response;
     try {
       edit = await fetch("https://api.x.ai/v1/images/edits", {

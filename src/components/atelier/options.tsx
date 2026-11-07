@@ -2,7 +2,6 @@ import { ArrowRight } from "lucide-react";
 import {
   DEPTH_LABEL,
   SHAPE_LABEL,
-  SHAPE_NOTE,
   TONE_LABEL,
   type FaceRead,
   type SituationId,
@@ -10,7 +9,11 @@ import {
 } from "@/lib/makeup/types";
 import type { ReferenceCard } from "@/lib/makeup/imagine";
 
+import type { PortraitAnalysis } from "@/lib/makeup/consultation";
+
 export function OptionsScreen({
+  analysis,
+  onRetake,
   situation,
   read,
   summary,
@@ -22,6 +25,8 @@ export function OptionsScreen({
   onRetry,
   onChoose,
 }: {
+  analysis?: PortraitAnalysis | null;
+  onRetake?: () => void;
   situation: SituationId;
   read: FaceRead | null;
   summary: string;
@@ -45,8 +50,11 @@ export function OptionsScreen({
       <p className="text-center text-sm text-muted">{occasion.label} · Elige tu favorito.</p>
       {read ? (
         <p className="mx-auto mt-4 max-w-2xl text-center text-sm">
-          {SHAPE_LABEL[read.shape]} · {TONE_LABEL[read.undertone]} · {DEPTH_LABEL[read.depth]}.{" "}
-          {SHAPE_NOTE[read.shape]}
+          Lectura orientativa:{" "}
+          {analysis?.forma_rostro ? SHAPE_LABEL[analysis.forma_rostro] : "Forma sin confirmar"} ·{" "}
+          {analysis?.subtono_piel ? TONE_LABEL[analysis.subtono_piel] : "Subtono sin confirmar"} ·
+          Profundidad aproximada: {DEPTH_LABEL[read.depth]}. No son mediciones ni reglas sobre cómo
+          debes maquillarte.
           {summary ? ` ${summary}.` : ""}
         </p>
       ) : (
@@ -54,6 +62,18 @@ export function OptionsScreen({
           No pude leer este rostro, así que no armo una referencia genérica.
         </p>
       )}
+      {analysis ? (
+        <div className="mx-auto mt-3 max-w-2xl text-center text-sm" role="status">
+          <p>{analysis.observaciones}</p>
+          {analysis.forma_ojos ? <p>Ojos (orientativo): {analysis.forma_ojos}</p> : null}
+          {analysis.advertencias.map((warning, index) => (
+            <p key={index}>{warning}</p>
+          ))}
+          {analysis.paleta_recomendada.length ? (
+            <p>Paleta orientativa: {analysis.paleta_recomendada.join(" · ")}</p>
+          ) : null}
+        </div>
+      ) : null}
       {skinLine ? <p className="mx-auto mt-2 max-w-2xl text-center text-sm">{skinLine}</p> : null}
       {error ? (
         <div className="mt-6">
@@ -66,6 +86,15 @@ export function OptionsScreen({
             Reintentar
           </button>
         </div>
+      ) : null}
+      {onRetake ? (
+        <button
+          type="button"
+          onClick={onRetake}
+          className="mt-4 min-h-11 rounded-full border border-line px-5"
+        >
+          Usar otra foto
+        </button>
       ) : null}
       <div className="mt-7 flex flex-col gap-3">
         {cards
@@ -117,7 +146,7 @@ export function OptionsScreen({
                   <p className="flex-1 px-4 py-4 text-sm text-muted">
                     {item === 0
                       ? readingSkin
-                        ? "Miro la piel en la foto y ajusto el maquillaje."
+                        ? "Compruebo la luz y los rasgos visibles, sin diagnosticar la piel."
                         : "Ajustando el maquillaje a esta cara."
                       : "Preparando otra opción."}
                   </p>
@@ -135,7 +164,8 @@ export function OptionsScreen({
         </button>
       ) : null}
       <p className="mt-6 text-center text-sm text-muted">
-        NEUSTA no guarda tu foto. Se envía a xAI para generar los looks.
+        NEUSTA no guarda tu foto. Se envía a xAI para analizarla y generar los looks. Los tonos y
+        acabados son orientativos.
       </p>
     </div>
   );

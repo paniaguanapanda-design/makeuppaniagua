@@ -132,7 +132,8 @@ export function ScannerScreen({ onCapture }: { onCapture: (capture: Capture) => 
       <p className="step-eyebrow">Paso 3 de 4</p>
       <h1 className="mt-3 text-4xl">Deja que te vea</h1>
       <p className="mx-auto mt-4 max-w-xl text-sm text-muted">
-        Mira a la lente, con luz de frente. Al encontrar tu rostro, preparo tres referencias.
+        Mira a la lente con luz natural de frente, sin filtros y, si puedes, sin maquillaje previo.
+        Grok comprobará si la foto permite asesorarte antes de preparar los looks.
       </p>
       <div className="mt-8 grid items-start gap-8 lg:grid-cols-2">
         <div className="overflow-hidden rounded-2xl border border-line bg-ink">

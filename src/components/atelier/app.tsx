@@ -7,6 +7,8 @@ import { OptionsScreen } from "@/components/atelier/options";
 import { ScannerScreen } from "@/components/atelier/scanner";
 import { StepsScreen } from "@/components/atelier/steps";
 import { referenceLooks, type ReferenceCard, type ReferenceResult } from "@/lib/makeup/imagine";
+import { analyzePortrait } from "@/lib/makeup/analyze";
+import { type PortraitAnalysis } from "@/lib/makeup/consultation";
 import { aiLook } from "@/lib/makeup/ai-look";
 import { jpegDataUrl } from "@/lib/makeup/photo";
 import { noteZones, personLine, type PersonBrief } from "@/lib/makeup/profile";
@@ -32,10 +34,14 @@ export function AtelierApp() {
   const [shot, setShot] = useState(0);
   const [chosen, setChosen] = useState<ReferenceCard | null>(null);
   const [profile, setProfile] = useState<PersonBrief | null>(null);
+  const [analysis, setAnalysis] = useState<PortraitAnalysis | null>(null);
+  const analysisJobs = useRef(new Map<number, Promise<PortraitAnalysis>>());
   const [seen, setSeen] = useState({ skin: "", fromPhoto: false });
   const upgraded = useRef(new Set<string>());
   const [signOutError, setSignOutError] = useState("");
-  const referenceJobs = useRef(new Map<string, Promise<ReferenceResult>>());
+  const referenceJobs = useRef(
+    new Map<string, Promise<ReferenceResult & { analysis: PortraitAnalysis }>>(),
+  );
   const planRequest = useRef(0);
   const shotRef = useRef(0);
   shotRef.current = shot;
@@ -62,14 +68,17 @@ export function AtelierApp() {
       data: {
         situation,
         optionId: chosen.id,
-        undertone: read?.undertone ?? "neutro",
+        undertone: analysis?.subtono_piel ?? "neutro",
         depth: read?.depth ?? "media",
-        shape: read?.shape ?? "ovalado",
+        shape: analysis?.forma_rostro ?? "ovalado",
         owned: [],
         age: profile?.age ?? "joven",
         tastes: profile?.tastes ?? [],
         note: profile?.note ?? "",
         skin: profile?.skin || seen.skin,
+        minutes: profile?.minutes ?? "15",
+        intensity: profile?.intensity ?? "media",
+        sensitivities: profile?.sensitivities ?? "",
       },
     })
       .then((data) => {
@@ -79,7 +88,7 @@ export function AtelierApp() {
         if (planRequest.current === request)
           setPlanError(error instanceof Error ? error.message : "No pude armar el look.");
       });
-  }, [situation, chosen, capture, profile, seen.skin]);
+  }, [situation, chosen, capture, profile, seen.skin, analysis]);
 
   useEffect(() => {
     loadDirectory();
@@ -93,11 +102,25 @@ export function AtelierApp() {
     if (view !== "options" || cards || cardsError || !capture?.read || !situation) return;
     let alive = true;
     const owned = noteZones(profile?.note ?? "");
-    const jobKey = `${situation}:${shot}:${owned.join(",")}:${profile?.age ?? ""}:${profile?.tastes.join(",") ?? ""}:${profile?.note ?? ""}:${profile?.skin ?? ""}`;
+    const jobKey = `${situation}:${shot}:${owned.join(",")}:${profile?.age ?? ""}:${profile?.tastes.join(",") ?? ""}:${profile?.note ?? ""}:${profile?.skin ?? ""}:${profile?.minutes ?? "15"}:${profile?.intensity ?? "media"}:${profile?.sensitivities ?? ""}`;
     let job = referenceJobs.current.get(jobKey);
     if (!job) {
-      job = referenceLooks({
-        data: { situation, owned, skin: profile?.skin ?? "" },
+      let portraitJob = analysisJobs.current.get(shot);
+      if (!portraitJob) {
+        portraitJob = analyzePortrait({ data: { photo: jpegDataUrl(capture.photo) } });
+        analysisJobs.current.set(shot, portraitJob);
+        portraitJob.catch(() => {
+          analysisJobs.current.delete(shot);
+        });
+      }
+      job = portraitJob.then((result) => {
+        if (!result.foto_utilizable)
+          throw new Error(
+            `Usa otra foto con buena luz, sin filtros y con un solo rostro visible. ${result.advertencias.join(" ")}`,
+          );
+        return referenceLooks({ data: { situation, owned, skin: profile?.skin ?? "" } }).then(
+          (references) => ({ ...references, analysis: result }),
+        );
       });
       referenceJobs.current.set(jobKey, job);
     }
@@ -105,6 +128,7 @@ export function AtelierApp() {
     job
       .then((data) => {
         if (!alive) return;
+        setAnalysis(data.analysis);
         setCards(data.cards);
         setSeen({ skin: data.skinSeen, fromPhoto: data.skinFromPhoto });
         setCardsError(null);
@@ -136,11 +160,23 @@ export function AtelierApp() {
         data: {
           situation,
           optionId: card.id,
-          undertone: read.undertone,
+          undertone: analysis?.subtono_piel ?? "neutro",
           depth: read.depth,
-          shape: read.shape,
+          shape: analysis?.forma_rostro ?? "ovalado",
           owned,
           photo: jpeg,
+          consultation: profile
+            ? {
+                age: profile.age,
+                tastes: profile.tastes,
+                note: profile.note,
+                skin: profile.skin,
+                minutes: profile.minutes ?? "15",
+                intensity: profile.intensity ?? "media",
+                sensitivities: profile.sensitivities ?? "",
+              }
+            : undefined,
+          analysis: analysis ?? undefined,
         },
       })
         .then((res) => {
@@ -168,7 +204,7 @@ export function AtelierApp() {
           );
         });
     }
-  }, [view, cards, capture, situation, profile, shot]);
+  }, [view, cards, capture, situation, profile, shot, analysis]);
 
   function openDirectory() {
     setBackTo(view === "directory" ? backTo : view);
@@ -267,6 +303,7 @@ export function AtelierApp() {
       ) : null}
       {view === "kit" ? (
         <KitScreen
+          initial={profile}
           onContinue={(person) => {
             setProfile(person);
             setCards(null);
@@ -279,6 +316,7 @@ export function AtelierApp() {
       {view === "scan" ? (
         <ScannerScreen
           onCapture={(next) => {
+            setAnalysis(null);
             setCapture(next);
             setPlan(null);
             setCards(null);
@@ -294,6 +332,8 @@ export function AtelierApp() {
         <OptionsScreen
           situation={situation}
           read={capture?.read ?? null}
+          analysis={analysis}
+          onRetake={() => setView("scan")}
           summary={profile ? personLine(profile) : ""}
           skinLine={
             profile?.skin
@@ -338,6 +378,7 @@ export function AtelierApp() {
           skinFromPhoto={!profile?.skin && seen.fromPhoto}
           kit={profile?.kit ?? null}
           summary={profile ? personLine(profile) : ""}
+          sensitivities={profile?.sensitivities ?? ""}
         />
       ) : null}
       {view === "directory" ? (
