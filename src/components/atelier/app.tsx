@@ -1,4 +1,6 @@
+import { FeedbackForm } from "@/components/atelier/feedback";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { InstallPrompt } from "@/components/install-prompt";
 import { KitScreen } from "@/components/atelier/kit";
 import { DirectoryScreen, HomeScreen, OccasionScreen } from "@/components/atelier/screens";
 import { OptionsScreen } from "@/components/atelier/options";
@@ -6,16 +8,14 @@ import { ScannerScreen } from "@/components/atelier/scanner";
 import { StepsScreen } from "@/components/atelier/steps";
 import { referenceLooks, type ReferenceCard, type ReferenceResult } from "@/lib/makeup/imagine";
 import { aiLook } from "@/lib/makeup/ai-look";
-import { renderCard } from "@/lib/makeup/preview";
+import { jpegDataUrl } from "@/lib/makeup/photo";
 import { noteZones, personLine, type PersonBrief } from "@/lib/makeup/profile";
 import { getDirectory, recommendLook } from "@/lib/makeup/server";
 import type { Capture, Directory, LookPlan, SituationId } from "@/lib/makeup/types";
 import { ArrowLeft } from "lucide-react";
 import { signOut } from "@/lib/auth/client";
 
-const referenceJobs = new Map<string, Promise<ReferenceResult>>();
-
-type View = "home" | "occasion" | "kit" | "scan" | "options" | "steps" | "directory";
+type View = "feedback" | "home" | "occasion" | "kit" | "scan" | "options" | "steps" | "directory";
 
 export function AtelierApp() {
   const [view, setView] = useState<View>("home");
@@ -34,8 +34,9 @@ export function AtelierApp() {
   const [profile, setProfile] = useState<PersonBrief | null>(null);
   const [seen, setSeen] = useState({ skin: "", fromPhoto: false });
   const upgraded = useRef(new Set<string>());
-  const [aiNote, setAiNote] = useState("");
   const [signOutError, setSignOutError] = useState("");
+  const referenceJobs = useRef(new Map<string, Promise<ReferenceResult>>());
+  const planRequest = useRef(0);
   const shotRef = useRef(0);
   shotRef.current = shot;
 
@@ -52,13 +53,15 @@ export function AtelierApp() {
   }, []);
 
   const loadPlan = useCallback(() => {
-    if (!situation) return;
+    if (!situation || !chosen) return;
+    const request = ++planRequest.current;
     setPlan(null);
     setPlanError(null);
     const read = capture?.read;
     recommendLook({
       data: {
         situation,
+        optionId: chosen.id,
         undertone: read?.undertone ?? "neutro",
         depth: read?.depth ?? "media",
         shape: read?.shape ?? "ovalado",
@@ -69,11 +72,14 @@ export function AtelierApp() {
         skin: profile?.skin || seen.skin,
       },
     })
-      .then((data) => setPlan(data))
+      .then((data) => {
+        if (planRequest.current === request) setPlan(data);
+      })
       .catch((error: unknown) => {
-        setPlanError(error instanceof Error ? error.message : "No pude armar el look.");
+        if (planRequest.current === request)
+          setPlanError(error instanceof Error ? error.message : "No pude armar el look.");
       });
-  }, [situation, capture, profile, seen.skin]);
+  }, [situation, chosen, capture, profile, seen.skin]);
 
   useEffect(() => {
     loadDirectory();
@@ -87,26 +93,24 @@ export function AtelierApp() {
     if (view !== "options" || cards || cardsError || !capture?.read || !situation) return;
     let alive = true;
     const owned = noteZones(profile?.note ?? "");
-    const jobKey = `${shot}:${owned.join(",")}:${profile?.age ?? ""}:${profile?.tastes.join(",") ?? ""}:${profile?.note ?? ""}:${profile?.skin ?? ""}`;
-    let job = referenceJobs.get(jobKey);
+    const jobKey = `${situation}:${shot}:${owned.join(",")}:${profile?.age ?? ""}:${profile?.tastes.join(",") ?? ""}:${profile?.note ?? ""}:${profile?.skin ?? ""}`;
+    let job = referenceJobs.current.get(jobKey);
     if (!job) {
       job = referenceLooks({
         data: { situation, owned, skin: profile?.skin ?? "" },
       });
-      referenceJobs.set(jobKey, job);
+      referenceJobs.current.set(jobKey, job);
     }
     setCardsLoading(true);
     job
       .then((data) => {
         if (!alive) return;
-        setCards(
-          data.cards.map((card) => ({ ...card, imageUrl: renderCard(card, capture, situation, owned) })),
-        );
+        setCards(data.cards);
         setSeen({ skin: data.skinSeen, fromPhoto: data.skinFromPhoto });
         setCardsError(null);
       })
       .catch((error: unknown) => {
-        referenceJobs.delete(jobKey);
+        referenceJobs.current.delete(jobKey);
         if (!alive) return;
         setCardsError(error instanceof Error ? error.message : "No pude crear las referencias.");
       })
@@ -118,14 +122,14 @@ export function AtelierApp() {
     };
   }, [view, shot, cards, cardsError, capture, situation, profile]);
 
-  // Con clave de Gemini, cada tarjeta se mejora con una foto editada por IA. Si falla, queda el pintado local.
+  // Solo mostrar imágenes de Grok. Cada solicitud tiene su propio estado y error.
   useEffect(() => {
     if (view !== "options" || !cards || !capture?.read || !situation) return;
     const read = capture.read;
     const owned = noteZones(profile?.note ?? "");
-    const jpeg = capture.photo.toDataURL("image/jpeg", 0.85);
-    for (const card of cards) {
-      const id = `${shot}:${card.id}`;
+    const jpeg = jpegDataUrl(capture.photo);
+    for (const card of cards.filter((card) => !card.imageUrl && !card.error)) {
+      const id = `${situation}:${shot}:${card.id}`;
       if (upgraded.current.has(id)) continue;
       upgraded.current.add(id);
       aiLook({
@@ -141,11 +145,27 @@ export function AtelierApp() {
       })
         .then((res) => {
           if (shotRef.current !== shot) return;
-          setAiNote("ok");
-          setCards((prev) => prev?.map((c) => (c.id === card.id ? { ...c, imageUrl: res.imageUrl } : c)) ?? prev);
+          setCards(
+            (prev) =>
+              prev?.map((c) => (c.id === card.id ? { ...c, imageUrl: res.imageUrl } : c)) ?? prev,
+          );
         })
         .catch((error: unknown) => {
-          if (shotRef.current === shot) setAiNote(error instanceof Error ? error.message.slice(0, 160) : "error");
+          if (shotRef.current !== shot) return;
+          setCards(
+            (prev) =>
+              prev?.map((c) =>
+                c.id === card.id
+                  ? {
+                      ...c,
+                      error:
+                        error instanceof Error
+                          ? error.message
+                          : "No pude generar este look con Grok.",
+                    }
+                  : c,
+              ) ?? prev,
+          );
         });
     }
   }, [view, cards, capture, situation, profile, shot]);
@@ -159,11 +179,26 @@ export function AtelierApp() {
     <div className="app-shell">
       <header className="sticky top-0 z-20 border-b border-line bg-surface/90 shadow-[0_8px_24px_rgba(131,24,67,0.06)] backdrop-blur-md">
         <div className="h-0.5 bg-blush" />
-        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
-          <button type="button" onClick={() => setView("home")} className="font-display text-xl tracking-wide">
+        <div className="mx-auto flex min-h-16 max-w-6xl flex-wrap items-center justify-between gap-2 px-4 py-2">
+          <button
+            type="button"
+            onClick={() => setView("home")}
+            className="font-display text-xl tracking-wide"
+          >
             NEUSTA
           </button>
-          <nav className="flex items-center gap-1">
+          <nav
+            aria-label="Navegación principal"
+            className="flex flex-wrap items-center justify-end gap-1"
+          >
+            <InstallPrompt />
+            <button
+              type="button"
+              onClick={() => setView("feedback")}
+              className="min-h-11 px-3 text-sm"
+            >
+              Dejar una opinión
+            </button>
             {view !== "home" ? (
               <button
                 type="button"
@@ -191,22 +226,41 @@ export function AtelierApp() {
           </nav>
         </div>
       </header>
-      {signOutError && <p role="alert" className="px-4 py-2 text-sm">{signOutError}</p>}
+      {signOutError && (
+        <p role="alert" className="px-4 py-2 text-sm">
+          {signOutError}
+        </p>
+      )}
+      {view === "feedback" ? (
+        <div className="mx-auto max-w-xl px-4 pb-16">
+          <FeedbackForm />
+        </div>
+      ) : null}
       {view === "home" ? (
         <HomeScreen
           onStart={() => setView("occasion")}
           onDirectory={openDirectory}
           onSignOut={() => {
             setSignOutError("");
-            void signOut().catch(() => setSignOutError("No se pudo cerrar sesión. Inténtalo de nuevo."));
+            void signOut().catch(() =>
+              setSignOutError("No se pudo cerrar sesión. Inténtalo de nuevo."),
+            );
           }}
         />
       ) : null}
       {view === "occasion" ? (
         <OccasionScreen
           onPick={(id) => {
+            // Invalidate in-flight edits immediately, before a new photo is taken.
+            shotRef.current += 1;
+            setShot(shotRef.current);
+            planRequest.current += 1;
             setSituation(id);
             setPlan(null);
+            setPlanError(null);
+            setCards(null);
+            setCardsError(null);
+            setChosen(null);
             setView("kit");
           }}
         />
@@ -236,11 +290,6 @@ export function AtelierApp() {
           }}
         />
       ) : null}
-      {view === "options" && aiNote ? (
-        <p className="mx-auto max-w-6xl px-4 pt-2 text-center text-xs text-muted">
-          {aiNote === "ok" ? "IA: foto mejorada" : `IA no disponible: ${aiNote}`}
-        </p>
-      ) : null}
       {view === "options" && situation ? (
         <OptionsScreen
           situation={situation}
@@ -258,11 +307,19 @@ export function AtelierApp() {
           loading={cardsLoading}
           error={cardsError}
           onRetry={() => {
+            if (cards?.some((card) => card.error)) {
+              for (const card of cards.filter((card) => card.error))
+                upgraded.current.delete(`${situation}:${shot}:${card.id}`);
+              setCards(cards.map((card) => ({ ...card, error: undefined })));
+              return;
+            }
             setCards(null);
             setCardsError(null);
             setShot((value) => value + 1);
           }}
           onChoose={(card) => {
+            planRequest.current += 1;
+            setPlan(null);
             setChosen(card);
             setView("steps");
           }}
