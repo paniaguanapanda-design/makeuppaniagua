@@ -37,9 +37,11 @@ const TIER_LABEL: Record<string, string> = {
 export function HomeScreen({
   onStart,
   onDirectory,
+  onSignOut,
 }: {
   onStart: () => void;
   onDirectory: () => void;
+  onSignOut: () => void;
 }) {
   return (
     <main data-testid="home" className="flex flex-col text-center">
@@ -75,6 +77,9 @@ export function HomeScreen({
               className="min-h-11 rounded-full border border-blush/35 bg-white/55 px-6 text-[13px] font-medium text-blush"
             >
               Explorar estilistas
+            </button>
+            <button type="button" onClick={onSignOut} className="min-h-11 text-[12px] font-medium text-ink underline underline-offset-4">
+              Cerrar sesión
             </button>
           </div>
         </div>

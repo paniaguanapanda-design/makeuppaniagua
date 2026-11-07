@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import { authMiddleware } from "@/lib/auth/middleware";
 import { z } from "zod";
 import { getSql } from "@/lib/db";
 
@@ -67,6 +68,7 @@ async function sendFeedbackEmail({
 
 /** Guarda una opinión sin solicitar datos identificativos ni enviar fotos. */
 export const sendFeedback = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
   .validator(feedbackSchema)
   .handler(async ({ data }): Promise<{ ok: true; emailStatus: FeedbackEmailStatus }> => {
     const sql = await getSql();

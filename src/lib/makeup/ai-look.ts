@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import { authMiddleware } from "@/lib/auth/middleware";
 import { z } from "zod";
 import { optionsFor, referencePrompt } from "@/lib/makeup/references";
 import type { SituationId, ZoneId } from "@/lib/makeup/types";
@@ -17,6 +18,7 @@ type GeminiPart = { inlineData?: { mimeType?: string; data?: string } };
 
 /** Pide a Gemini que edite la foto de la usuaria con el look. Sin clave, falla rápido y la app usa el pintado local. */
 export const aiLook = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
   .validator(schema)
   .handler(async ({ data }): Promise<{ imageUrl: string }> => {
     const grokKey = process.env.XAI_API_KEY;

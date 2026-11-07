@@ -73,23 +73,20 @@ export async function getSessionUser(
 /**
  * Resolve the current user id for a server function, or throw when unauthorized.
  * Prefer `authMiddleware` (`./middleware`), which calls this for you.
- * - Auth enabled -> the verified session user id; throws
- *   `UnauthorizedError` when signed out. Works in the sandbox preview too (real
- *   sign-in via the baked preview client).
- * - Auth disabled (`VITE_AUTH_ENABLED=false`) + `DATABASE_URL` set -> throw (fail
- *   closed): one shared dev user on a real database would let every visitor
- *   read/write everyone's rows.
- * - Auth disabled + no database -> the shared dev user id.
+ * The application requires a verified session and never falls back to a
+ * shared development user. Deployments also require persistent auth settings.
  */
 export async function requireUserId(bearerToken?: string): Promise<string> {
+  if (
+    process.env.VERCEL &&
+    (!process.env.DATABASE_URL?.trim() ||
+      !process.env.BETTER_AUTH_SECRET?.trim() ||
+      !process.env.BETTER_AUTH_URL?.trim())
+  ) {
+    throw new Error("Auth is not configured for deployment.");
+  }
   if (!authConfigured && !gateIdentityEnabled()) {
-    if (databaseConfigured) {
-      throw new Error(
-        "Auth is disabled (VITE_AUTH_ENABLED=false) but DATABASE_URL is set — " +
-          "refusing to fall back to the shared dev user against a real database.",
-      );
-    }
-    return DEV_USER_ID;
+    throw new UnauthorizedError();
   }
   const user = await getSessionUser(bearerToken);
   if (!user) throw new UnauthorizedError();

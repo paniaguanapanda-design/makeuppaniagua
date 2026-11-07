@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import { authMiddleware } from "@/lib/auth/middleware";
 import { z } from "zod";
 import { optionsFor, type OptionId } from "@/lib/makeup/references";
 import type { SituationId, ZoneId } from "@/lib/makeup/types";
@@ -27,6 +28,7 @@ export type ReferenceResult = {
 
 /** Las cinco referencias de la ocasión. Sin servicios externos: el dibujo se hace en el celular. */
 export const referenceLooks = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
   .validator(schema)
   .handler(async ({ data }): Promise<ReferenceResult> => {
     const situation = data.situation as SituationId;

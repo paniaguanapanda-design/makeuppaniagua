@@ -1,8 +1,8 @@
 /**
  * Self-hosted Better Auth for THIS app (server-only).
  *
- * Pre-wired for live preview + deploy — do not rewrite this file. To enable
- * local email/password, flip the flag in `./email-password` only (see auth skill).
+ * Pre-wired for live preview + deploy. Local email/password is controlled by
+ * `./email-password`; password recovery uses the app's mail provider below.
  *
  * The app runs its own Better Auth at `/api/auth/*`, so the session cookie stays
  * on this app's own origin. Sign-in federates to the shared **Grok auth broker**
@@ -204,14 +204,47 @@ export const auth = betterAuth({
     },
   },
 
-  // Cache the session in the short-lived signed `session_data` cookie so reads
-  // (incl. the client's `/get-session`) skip the DB — this shrinks the "loading"
-  // window and reduces auth flicker. See the `auth` skill for the full
-  // flicker-prevention guidance (gate on `isPending`; SSR the session).
-  session: { cookieCache: { enabled: true, maxAge: 300 } },
+  // Read sessions from the database so password resets revoke access immediately.
+  session: { cookieCache: { enabled: false } },
 
   // Local email/password — toggled only via `./email-password` (not a plugin).
-  ...(emailAndPasswordEnabled ? { emailAndPassword: { enabled: true } } : {}),
+  ...(emailAndPasswordEnabled
+    ? {
+        emailAndPassword: {
+          enabled: true,
+          minPasswordLength: 8,
+          resetPasswordTokenExpiresIn: 60 * 60,
+          revokeSessionsOnPasswordReset: true,
+          sendResetPassword: async ({ user, url }: { user: { email: string }; url: string }) => {
+            const apiKey = env("RESEND_API_KEY");
+            const from = env("FEEDBACK_EMAIL_FROM");
+            if (!apiKey || !from) {
+              console.error("[auth] Password reset email is not configured");
+              return;
+            }
+            try {
+              const response = await fetch("https://api.resend.com/emails", {
+                method: "POST",
+                headers: {
+                  Authorization: `Bearer ${apiKey}`,
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                  from,
+                  to: [user.email],
+                  subject: "Recupera tu contraseña de NEUSTA",
+                  text: `Para crear una nueva contraseña, abre este enlace. Caduca en una hora:\n\n${url}\n\nSi no solicitaste este cambio, puedes ignorar este mensaje.`,
+                }),
+                signal: AbortSignal.timeout(10_000),
+              });
+              if (!response.ok) console.error(`[auth] Password reset email failed: HTTP ${response.status}`);
+            } catch (error) {
+              console.error("[auth] Password reset email failed:", error instanceof Error ? error.name : "UnknownError");
+            }
+          },
+        },
+      }
+    : {}),
 
   // `__Host-` prefixed cookies: the browser REFUSES any same-named cookie that
   // carries a `Domain` attribute, so a sibling `*.grok.me` app cannot "toss" a

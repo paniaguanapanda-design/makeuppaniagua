@@ -11,6 +11,7 @@ import { noteZones, personLine, type PersonBrief } from "@/lib/makeup/profile";
 import { getDirectory, recommendLook } from "@/lib/makeup/server";
 import type { Capture, Directory, LookPlan, SituationId } from "@/lib/makeup/types";
 import { ArrowLeft } from "lucide-react";
+import { signOut } from "@/lib/auth/client";
 
 const referenceJobs = new Map<string, Promise<ReferenceResult>>();
 
@@ -34,6 +35,7 @@ export function AtelierApp() {
   const [seen, setSeen] = useState({ skin: "", fromPhoto: false });
   const upgraded = useRef(new Set<string>());
   const [aiNote, setAiNote] = useState("");
+  const [signOutError, setSignOutError] = useState("");
   const shotRef = useRef(0);
   shotRef.current = shot;
 
@@ -186,16 +188,18 @@ export function AtelierApp() {
                 Volver
               </button>
             ) : null}
-            <button type="button" onClick={openDirectory} className="min-h-11 px-3 text-sm">
-              Directorio
-            </button>
           </nav>
         </div>
       </header>
+      {signOutError && <p role="alert" className="px-4 py-2 text-sm">{signOutError}</p>}
       {view === "home" ? (
         <HomeScreen
           onStart={() => setView("occasion")}
           onDirectory={openDirectory}
+          onSignOut={() => {
+            setSignOutError("");
+            void signOut().catch(() => setSignOutError("No se pudo cerrar sesión. Inténtalo de nuevo."));
+          }}
         />
       ) : null}
       {view === "occasion" ? (

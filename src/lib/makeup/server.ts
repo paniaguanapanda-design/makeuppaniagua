@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import { authMiddleware } from "@/lib/auth/middleware";
 import { z } from "zod";
 import { getSql } from "@/lib/db";
 import { noteMatchesProduct, type AgeId, type TasteId } from "@/lib/makeup/profile";
@@ -222,7 +223,7 @@ const REMAP_BRAND: Partial<Record<ZoneId, "look" | string>> = {
   iluminador: "essence",
 };
 
-export const getDirectory = createServerFn({ method: "GET" }).handler(
+export const getDirectory = createServerFn({ method: "GET" }).middleware([authMiddleware]).handler(
   async (): Promise<Directory> => {
     const sql = await getSql();
     const brands = await sql<{
@@ -295,6 +296,7 @@ export const getDirectory = createServerFn({ method: "GET" }).handler(
 );
 
 export const recommendLook = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
   .validator(recommendSchema)
   .handler(async ({ data }): Promise<LookPlan> => {
     const sql = await getSql();

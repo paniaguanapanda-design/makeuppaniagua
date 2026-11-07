@@ -68,6 +68,111 @@
   font-family: var(--font-display);
 }
 
+.access-page {
+  display: grid;
+  min-height: 100svh;
+  place-items: center;
+  padding: 2rem 1rem;
+}
+
+.access-card {
+  width: min(100%, 27rem);
+  border-radius: 2rem;
+  padding: 2.5rem 2rem;
+  text-align: center;
+}
+
+.access-card h1 {
+  margin: 1.4rem 0 0;
+  font-size: 2.7rem;
+}
+
+.access-intro {
+  margin: 0.75rem auto 1.75rem;
+  max-width: 22rem;
+  color: var(--color-muted);
+  font-size: 0.875rem;
+}
+
+.access-form {
+  display: grid;
+  gap: 1rem;
+  text-align: left;
+}
+
+.access-form label {
+  display: grid;
+  gap: 0.35rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.access-form input {
+  width: 100%;
+  min-height: 3rem;
+  border: 1px solid #d5bdbe;
+  border-radius: 0.8rem;
+  background: rgb(255 255 255 / 80%);
+  padding: 0.7rem 0.85rem;
+  font-size: 1rem;
+}
+
+.access-password {
+  position: relative;
+}
+
+.access-password input {
+  padding-right: 3.25rem;
+}
+
+.access-password button {
+  position: absolute;
+  top: 0;
+  right: 0;
+  display: grid;
+  width: 3rem;
+  height: 3rem;
+  place-items: center;
+  color: var(--color-muted);
+}
+
+.access-hint {
+  color: var(--color-muted);
+  font-size: 0.75rem;
+  font-weight: 400;
+}
+
+.access-error, .access-message {
+  margin: 0;
+  font-size: 0.85rem;
+}
+
+.access-error { color: #96263b; }
+.access-message { color: #315945; }
+
+.access-link, .access-switch button {
+  color: var(--color-accent);
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.access-link { justify-self: end; }
+
+.access-submit {
+  min-height: 3.1rem;
+  border-radius: 999px;
+  background: var(--color-ink);
+  color: white;
+  font-weight: 600;
+}
+
+.access-switch {
+  margin: 1.5rem 0 0;
+  font-size: 0.8rem;
+}
+
 .app-shell {
   width: 100%;
   max-width: 430px;
