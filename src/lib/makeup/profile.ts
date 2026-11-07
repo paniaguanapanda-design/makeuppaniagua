@@ -1,12 +1,16 @@
 import type { ZoneId } from "@/lib/makeup/types";
 
 export const AGES = [
-  { id: "menor", label: "Menos de 18", line: "Poco producto y piel ligera. Nada de look adulto." },
-  { id: "joven", label: "18 a 25", line: "Rubor, ceja y un labio que puede ser mate o con color." },
-  { id: "treinta", label: "26 a 35", line: "Mirada abierta, tonos tierra y un labio con luz." },
-  { id: "cuarenta", label: "36 a 45", line: "Satinado, coral o rojo, pestaña y ceja." },
-  { id: "madura", label: "46 a 59", line: "Crema antes que polvo. Menos brillo donde hay textura." },
-  { id: "silver", label: "60 o más", line: "Piel luminosa, pestaña y un labio que devuelva vida." },
+  {
+    id: "menor",
+    label: "Menos de 18",
+    line: "Asesoría apropiada para menores, sin cambiar tus facciones.",
+  },
+  { id: "joven", label: "18 a 25", line: "Tu estilo lo eliges tú; no se deduce de la edad." },
+  { id: "treinta", label: "26 a 35", line: "Tu estilo lo eliges tú; no se deduce de la edad." },
+  { id: "cuarenta", label: "36 a 45", line: "Tu estilo lo eliges tú; no se deduce de la edad." },
+  { id: "madura", label: "46 a 59", line: "Tu estilo lo eliges tú; no se deduce de la edad." },
+  { id: "silver", label: "60 o más", line: "Tu estilo lo eliges tú; no se deduce de la edad." },
 ] as const;
 
 export type AgeId = (typeof AGES)[number]["id"];
@@ -32,6 +36,9 @@ export type PersonBrief = {
   note: string;
   skin: string;
   skinFromPhoto?: boolean;
+  minutes?: "5" | "15" | "30";
+  intensity?: "suave" | "media" | "intensa";
+  sensitivities?: string;
   kit: Record<KitField, string>;
 };
 
@@ -102,7 +109,9 @@ export function skinPrompt(skin: string, fromPhoto = false) {
       : `She described her skin in her own words: "${skin.slice(0, 300)}". Respect that.`,
   ];
   if (/acne|acné|grano|barrito|espinilla/.test(text)) {
-    lines.push("Acne-prone skin: a very light base, no heavy layers and no thick cream on the cheeks.");
+    lines.push(
+      "Acne-prone skin: a very light base, no heavy layers and no thick cream on the cheeks.",
+    );
   }
   if (/seca|tirante|escama|deshidr/.test(text)) {
     lines.push("Dry skin: cream textures. No flat matte powder that clings to dry patches.");
@@ -151,13 +160,18 @@ const NOTE_ZONES: [ZoneId, string[]][] = [
 export function noteZones(note: string): ZoneId[] {
   const text = note.toLowerCase();
   if (!text.trim()) return [];
-  return NOTE_ZONES.filter(([, words]) => words.some((word) => text.includes(word))).map(([zone]) => zone);
+  return NOTE_ZONES.filter(([, words]) => words.some((word) => text.includes(word))).map(
+    ([zone]) => zone,
+  );
 }
 
 export function noteMatchesProduct(note: string, brandName: string, productName: string) {
   const text = note.toLowerCase();
   if (!text.trim()) return false;
-  const brand = brandName.toLowerCase().normalize("NFD").replace(/\p{Diacritic}/gu, "");
+  const brand = brandName
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "");
   const plain = text.normalize("NFD").replace(/\p{Diacritic}/gu, "");
   const token = brand.split(" ")[0] ?? "";
   if (token.length > 2 && plain.includes(token)) return true;

@@ -1,8 +1,6 @@
 import { ArrowRight } from "lucide-react";
 import {
-  DEPTH_LABEL,
   SHAPE_LABEL,
-  SHAPE_NOTE,
   TONE_LABEL,
   type FaceRead,
   type SituationId,
@@ -10,23 +8,30 @@ import {
 } from "@/lib/makeup/types";
 import type { ReferenceCard } from "@/lib/makeup/imagine";
 
+import type { PortraitAnalysis } from "@/lib/makeup/consultation";
+
 export function OptionsScreen({
+  analysis,
+  onRetake,
   situation,
   read,
   summary,
   skinLine,
-  readingSkin,
+  preferences = "",
   cards,
   loading,
   error,
   onRetry,
   onChoose,
 }: {
+  analysis?: PortraitAnalysis | null;
+  onRetake?: () => void;
   situation: SituationId;
   read: FaceRead | null;
   summary: string;
   skinLine: string;
-  readingSkin: boolean;
+  readingSkin?: boolean;
+  preferences?: string;
   cards: ReferenceCard[] | null;
   loading: boolean;
   error: string | null;
@@ -43,17 +48,50 @@ export function OptionsScreen({
       </h1>
       <div className="hair" />
       <p className="text-center text-sm text-muted">{occasion.label} · Elige tu favorito.</p>
-      {read ? (
-        <p className="mx-auto mt-4 max-w-2xl text-center text-sm">
-          {SHAPE_LABEL[read.shape]} · {TONE_LABEL[read.undertone]} · {DEPTH_LABEL[read.depth]}.{" "}
-          {SHAPE_NOTE[read.shape]}
-          {summary ? ` ${summary}.` : ""}
+      {read && !analysis && !error ? (
+        <p className="mx-auto mt-4 max-w-2xl text-center text-sm" role="status">
+          Estoy analizando tu foto para preparar tres looks de maquillaje para{" "}
+          {occasion.label.toLowerCase()}.
+          {preferences
+            ? ` Según tus preferencias: ${preferences}.`
+            : " Adaptados a tus preferencias."}
         </p>
-      ) : (
+      ) : null}
+      {!read ? (
         <p className="mt-4 text-sm text-blush">
-          No pude leer este rostro, así que no armo una referencia genérica.
+          No pude leer este rostro. Prueba otra foto con buena luz y la cara visible.
         </p>
-      )}
+      ) : null}
+      {analysis ? (
+        <div className="mx-auto mt-4 max-w-2xl text-center text-sm">
+          {summary ? <p>{summary}</p> : null}
+          {analysis.forma_rostro || analysis.subtono_piel ? (
+            <p className="mt-2">
+              Como orientación para tu maquillaje:{" "}
+              {[
+                analysis.forma_rostro
+                  ? `rostro ${SHAPE_LABEL[analysis.forma_rostro].toLowerCase()}`
+                  : "",
+                analysis.subtono_piel
+                  ? `subtono ${TONE_LABEL[analysis.subtono_piel].toLowerCase()}`
+                  : "",
+              ]
+                .filter(Boolean)
+                .join(" y ")}
+              .
+            </p>
+          ) : null}
+          {analysis.observaciones ? <p className="mt-2">{analysis.observaciones}</p> : null}
+          {analysis.advertencias.length ? (
+            <details className="mt-2">
+              <summary>Consejos para una foto más precisa</summary>
+              {analysis.advertencias.map((warning, index) => (
+                <p key={index}>{warning}</p>
+              ))}
+            </details>
+          ) : null}
+        </div>
+      ) : null}
       {skinLine ? <p className="mx-auto mt-2 max-w-2xl text-center text-sm">{skinLine}</p> : null}
       {error ? (
         <div className="mt-6">
@@ -66,6 +104,15 @@ export function OptionsScreen({
             Reintentar
           </button>
         </div>
+      ) : null}
+      {onRetake ? (
+        <button
+          type="button"
+          onClick={onRetake}
+          className="mt-4 min-h-11 rounded-full border border-line px-5"
+        >
+          Usar otra foto
+        </button>
       ) : null}
       <div className="mt-7 flex flex-col gap-3">
         {cards
@@ -116,10 +163,8 @@ export function OptionsScreen({
                   <div className="look-choice-image animate-pulse bg-clay/60" />
                   <p className="flex-1 px-4 py-4 text-sm text-muted">
                     {item === 0
-                      ? readingSkin
-                        ? "Miro la piel en la foto y ajusto el maquillaje."
-                        : "Ajustando el maquillaje a esta cara."
-                      : "Preparando otra opción."}
+                      ? "Preparando tu primera propuesta."
+                      : "Preparando otra opción para ti."}
                   </p>
                 </div>
               ))
@@ -135,7 +180,8 @@ export function OptionsScreen({
         </button>
       ) : null}
       <p className="mt-6 text-center text-sm text-muted">
-        NEUSTA no guarda tu foto. Se envía a xAI para generar los looks.
+        NEUSTA no guarda tu foto. Se envía a xAI para analizarla y generar los looks. Los tonos y
+        acabados son orientativos.
       </p>
     </div>
   );

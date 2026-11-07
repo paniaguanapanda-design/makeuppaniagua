@@ -1,12 +1,5 @@
 import { personPrompt, type PersonBrief } from "@/lib/makeup/profile";
-import type {
-  Depth,
-  FaceRead,
-  FaceShape,
-  SituationId,
-  Undertone,
-  ZoneId,
-} from "@/lib/makeup/types";
+import type { Depth, FaceRead, SituationId, Undertone, ZoneId } from "@/lib/makeup/types";
 
 export const OPTION_IDS = ["piel", "poco", "natural", "definido", "cargado"] as const;
 export type OptionId = (typeof OPTION_IDS)[number];
@@ -21,19 +14,10 @@ export type LookOption = {
   productHints?: Partial<Record<ZoneId, string>>;
 };
 
-const SHAPE_FIT: Record<FaceShape, string> = {
-  ovalado: "Oval face: place blush slightly toward the temple.",
-  redondo:
-    "Round face: lift the color toward the temples and do not put a round patch on the cheek apple.",
-  cuadrado: "Square face: soften the jaw corners and round the blush.",
-  corazon: "Heart-shaped face: little product on the temples, blush lower on the cheek.",
-  alargado:
-    "Long face: blush sits horizontal at mid-cheek. Do not lengthen the nose with highlight.",
-};
-
 const TONE_FIT: Record<Undertone, string> = {
-  calido: "Warm undertone: peach, bronze and brown-rose. No cool pink, no blue-red.",
-  frio: "Cool undertone: rose, mauve and taupe. No orange.",
+  calido:
+    "Warm undertone: peach, bronze and brown-rose. Other colors are welcome if the client prefers them.",
+  frio: "Cool undertone: rose, mauve and taupe. Other colors are welcome if the client prefers them.",
   neutro: "Neutral undertone: shades that look like they came from this skin.",
 };
 
@@ -382,7 +366,7 @@ export function referencePrompt(
     "Do not replace them with another model. Do not paste makeup on top like a filter or face paint.",
     "Show a real photograph of this person after a makeup artist finished the look, blended into their skin.",
     "Apply actual cosmetic color to the lips, cheeks and eyes. This is a virtual makeup try-on, NOT a skin retouch, beauty filter or smoothing task. A merely softened or unchanged face is not a completed makeup look.",
-    SHAPE_FIT[read.shape],
+    "Face shape is an orientative description, not a defect or a rule requiring contour. Respect the client preferences and original anatomy.",
     TONE_FIT[read.undertone],
     DEPTH_FIT[read.depth],
     option.prompt,

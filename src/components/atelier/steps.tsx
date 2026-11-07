@@ -22,6 +22,7 @@ export function StepsScreen({
   skinFromPhoto,
   kit,
   summary,
+  sensitivities = "",
 }: {
   situation: SituationId;
   card: ReferenceCard;
@@ -34,6 +35,7 @@ export function StepsScreen({
   skinFromPhoto: boolean;
   kit: PersonBrief["kit"] | null;
   summary: string;
+  sensitivities?: string;
 }) {
   const occasion = situationById(situation);
   const option = optionById(situation, card.id as OptionId);
@@ -62,6 +64,14 @@ export function StepsScreen({
         </p>
       ) : null}
 
+      <p className="mt-4 text-sm text-muted">
+        Usa herramientas limpias. Los tonos del catálogo son aproximados: compruébalos con luz
+        natural. No podemos verificar ingredientes ni garantizar compatibilidad con alergias.
+        {sensitivities
+          ? ` Has indicado: ${sensitivities}. Evita los productos que te causen reacción y revisa sus ingredientes.`
+          : " Si tienes alergias o sensibilidad, revisa los ingredientes antes de usar un producto nuevo."}{" "}
+        Suspende el uso si aparece irritación.
+      </p>
       <div className="mt-8 grid items-start gap-8 lg:grid-cols-2">
         <div className="lg:sticky lg:top-20">
           <img

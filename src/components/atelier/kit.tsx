@@ -34,14 +34,27 @@ const FIELDS: { id: KitField; label: string; placeholder: string }[] = [
   },
 ];
 
-export function KitScreen({ onContinue }: { onContinue: (person: PersonBrief) => void }) {
-  const [age, setAge] = useState<AgeId | null>(null);
-  const [tastes, setTastes] = useState<TasteId[]>([]);
-  const [kit, setKit] = useState(EMPTY_KIT);
-  const [skin, setSkin] = useState("");
+export function KitScreen({
+  onContinue,
+  initial,
+}: {
+  onContinue: (person: PersonBrief) => void;
+  initial?: PersonBrief | null;
+}) {
+  const [age, setAge] = useState<AgeId | null>(initial?.age ?? null);
+  const [tastes, setTastes] = useState<TasteId[]>(initial?.tastes ?? []);
+  const [kit, setKit] = useState(initial?.kit ?? EMPTY_KIT);
+  const [skin, setSkin] = useState(initial?.skin ?? "");
+  const [minutes, setMinutes] = useState<"5" | "15" | "30">(initial?.minutes ?? "15");
+  const [intensity, setIntensity] = useState<"suave" | "media" | "intensa">(
+    initial?.intensity ?? "media",
+  );
+  const [sensitivities, setSensitivities] = useState(initial?.sensitivities ?? "");
 
   function toggleTaste(id: TasteId) {
-    setTastes((current) => (current.includes(id) ? current.filter((item) => item !== id) : [...current, id]));
+    setTastes((current) =>
+      current.includes(id) ? current.filter((item) => item !== id) : [...current, id],
+    );
   }
 
   function go() {
@@ -55,6 +68,9 @@ export function KitScreen({ onContinue }: { onContinue: (person: PersonBrief) =>
     onContinue({
       age,
       tastes,
+      minutes,
+      intensity,
+      sensitivities: sensitivities.trim().slice(0, 300),
       kit: next,
       skin: skin.trim().slice(0, 300),
       note: composeNote(next),
@@ -66,8 +82,8 @@ export function KitScreen({ onContinue }: { onContinue: (person: PersonBrief) =>
       <p className="text-xs tracking-widest text-muted uppercase">Paso 2</p>
       <h1 className="mt-3 text-4xl sm:text-6xl">Cuéntame cómo te maquillas</h1>
       <p className="mt-4 text-muted">
-        No hay una lista de marcas. Escribe lo que usas, con tus palabras, y cómo está tu piel. Si una casilla no
-        aplica, déjala en blanco.
+        No hay una lista de marcas. Escribe lo que usas, con tus palabras, y cómo está tu piel. Si
+        una casilla no aplica, déjala en blanco.
       </p>
 
       <h2 className="mt-8 text-2xl">Edad</h2>
@@ -85,7 +101,11 @@ export function KitScreen({ onContinue }: { onContinue: (person: PersonBrief) =>
             }
           >
             <span className="block font-medium">{item.label}</span>
-            <span className={age === item.id ? "mt-1 block text-sm text-clay" : "mt-1 block text-sm text-muted"}>
+            <span
+              className={
+                age === item.id ? "mt-1 block text-sm text-clay" : "mt-1 block text-sm text-muted"
+              }
+            >
               {item.line}
             </span>
           </button>
@@ -114,13 +134,56 @@ export function KitScreen({ onContinue }: { onContinue: (person: PersonBrief) =>
         })}
       </div>
 
+      <div className="mt-8 grid gap-6 sm:grid-cols-2">
+        <label className="block">
+          <span className="text-2xl">Tiempo disponible</span>
+          <select
+            value={minutes}
+            onChange={(event) => setMinutes(event.target.value as typeof minutes)}
+            className="mt-3 min-h-11 w-full rounded-2xl border border-line bg-surface px-4 py-3"
+          >
+            <option value="5">5 minutos · rutina rápida</option>
+            <option value="15">15 minutos · con calma</option>
+            <option value="30">30 minutos · más detalle</option>
+          </select>
+        </label>
+        <label className="block">
+          <span className="text-2xl">Intensidad que prefieres</span>
+          <select
+            value={intensity}
+            onChange={(event) => setIntensity(event.target.value as typeof intensity)}
+            className="mt-3 min-h-11 w-full rounded-2xl border border-line bg-surface px-4 py-3"
+          >
+            <option value="suave">Suave</option>
+            <option value="media">Media</option>
+            <option value="intensa">Intensa</option>
+          </select>
+        </label>
+      </div>
+      <label className="mt-8 block">
+        <span className="text-2xl">Alergias o sensibilidad (opcional)</span>
+        <textarea
+          value={sensitivities}
+          onChange={(event) => setSensitivities(event.target.value.slice(0, 300))}
+          rows={2}
+          maxLength={300}
+          placeholder="Solo lo que ya sabes: ingredientes o productos que evitas. No se deduce de la foto."
+          className="mt-3 w-full rounded-2xl border border-line bg-surface px-4 py-3 text-base"
+        />
+        <span className="mt-2 block text-sm text-muted">
+          No podemos verificar ingredientes ni garantizar que un producto sea seguro para tu
+          alergia.
+        </span>
+      </label>
       <div className="mt-10 flex flex-col gap-6">
         {FIELDS.map((field) => (
           <label key={field.id} className="block">
             <span className="text-2xl">{field.label}</span>
             <textarea
               value={kit[field.id]}
-              onChange={(event) => setKit((current) => ({ ...current, [field.id]: event.target.value.slice(0, 240) }))}
+              onChange={(event) =>
+                setKit((current) => ({ ...current, [field.id]: event.target.value.slice(0, 240) }))
+              }
               rows={3}
               placeholder={field.placeholder}
               className="mt-3 w-full rounded-2xl border border-line bg-surface px-4 py-3 text-base"
@@ -133,7 +196,7 @@ export function KitScreen({ onContinue }: { onContinue: (person: PersonBrief) =>
             value={skin}
             onChange={(event) => setSkin(event.target.value.slice(0, 300))}
             rows={3}
-            placeholder="Granos, seca, grasa, sensible, manchas, rojeces, ojeras. Si lo dejas en blanco, lo miro en la foto."
+            placeholder="Granos, seca, grasa, sensible, manchas, rojeces, ojeras. Opcional. La foto no permite diagnosticar tu piel."
             className="mt-3 w-full rounded-2xl border border-line bg-surface px-4 py-3 text-base"
           />
         </label>

@@ -7,7 +7,11 @@ import ts from "typescript";
 
 const require = createRequire(import.meta.url);
 // Execute the real component with a small hook/DOM harness. No provider or browser credentials.
-function setup(standalone = false) {
+function setup(standalone = false, storedUntil = null, storageFails = false) {
+  const storage = new Map(storedUntil ? [["neusta.install-dismissed-until", storedUntil]] : []);
+  const timers = new Map();
+  let timerId = 0;
+  const cleanups = [];
   const state = [];
   const effects = [];
   const listeners = new Map();
@@ -52,7 +56,24 @@ function setup(standalone = false) {
     {
       exports,
       navigator: { standalone },
+      localStorage: {
+        getItem(key) {
+          if (storageFails) throw new Error("denied");
+          return storage.get(key) ?? null;
+        },
+        setItem(key, value) {
+          if (storageFails) throw new Error("denied");
+          storage.set(key, value);
+        },
+      },
       window: {
+        setTimeout(fn) {
+          timers.set(++timerId, fn);
+          return timerId;
+        },
+        clearTimeout(id) {
+          timers.delete(id);
+        },
         matchMedia: () => ({
           matches: standalone,
           addEventListener() {},
@@ -69,7 +90,7 @@ function setup(standalone = false) {
     const tree = exports.InstallPrompt();
     if (!mounted) {
       mounted = true;
-      for (const fn of effects) fn();
+      for (const fn of effects) cleanups.push(fn());
     }
     return tree;
   }
@@ -81,30 +102,79 @@ function setup(standalone = false) {
       ...children.flatMap((child) => all(child, type)),
     ];
   }
-  return { render, all, listeners, dialog };
+  return {
+    render,
+    all,
+    listeners,
+    dialog,
+    storage,
+    timers,
+    flush() {
+      for (const fn of timers.values()) fn();
+      timers.clear();
+    },
+    unmount() {
+      for (const fn of cleanups) fn();
+    },
+  };
 }
 
-test("install entry always opens guidance even without an install event; closing does not dismiss it forever", () => {
+function button(h, label) {
+  return h.all(h.render(), "button").find((item) => item.props.children === label);
+}
+
+test("invitation opens automatically once, without an install header entry or a native prompt", () => {
   const h = setup();
-  let tree = h.render();
-  let buttons = h.all(tree, "button");
-  assert.equal(buttons[0].props.children, "Instalar app");
-  buttons[0].props.onClick();
-  assert.equal(h.dialog.open, true);
-  buttons.at(-1).props.onClick();
+  h.render();
   assert.equal(h.dialog.open, false);
-  tree = h.render();
-  h.all(tree, "button")[0].props.onClick();
+  h.flush();
   assert.equal(h.dialog.open, true);
-  const text = JSON.stringify(tree);
-  for (const browser of ["iPhone", "Android", "Chrome", "Safari", "Firefox", "marcador"])
-    assert.match(text, new RegExp(browser));
+  assert.ok(button(h, "Instalar"));
+  assert.ok(button(h, "Ahora no"));
+  assert.doesNotMatch(JSON.stringify(h.render()), /Instalar app/);
+  const root = readFileSync(new URL("../src/routes/__root.tsx", import.meta.url), "utf8");
+  const app = readFileSync(new URL("../src/components/atelier/app.tsx", import.meta.url), "utf8");
+  assert.match(root, /<InstallPrompt \/>/);
+  assert.doesNotMatch(app, /InstallPrompt/);
 });
 
-test("native install cancellation and failure keep manual help available", async () => {
-  for (const fail of [false, true]) {
+test("Ahora no and Escape defer the invitation for seven days, including later visits", () => {
+  for (const escape of [false, true]) {
     const h = setup();
     h.render();
+    h.flush();
+    if (escape) h.all(h.render(), "dialog")[0].props.onCancel();
+    else button(h, "Ahora no").props.onClick();
+    assert.equal(h.dialog.open, false);
+    const until = h.storage.get("neusta.install-dismissed-until");
+    const days = (Number(until) - Date.now()) / 86400000;
+    assert.ok(days > 6.99 && days <= 7);
+    const next = setup(false, until);
+    next.render();
+    next.flush();
+    assert.equal(next.dialog.open, false);
+    const expired = setup(false, String(Date.now() - 100));
+    expired.render();
+    expired.flush();
+    assert.equal(expired.dialog.open, true);
+  }
+});
+
+test("missing native event explains installation rather than promising an APK", async () => {
+  const h = setup();
+  h.render();
+  h.flush();
+  await button(h, "Instalar").props.onClick();
+  assert.equal(h.dialog.open, true);
+  assert.match(JSON.stringify(h.render()), /no ofrece instalación directa/);
+  assert.match(JSON.stringify(h.render()), /Añadir a pantalla de inicio/);
+});
+
+test("late browser event enables native install only after a click; cancellation and error keep help", async () => {
+  for (const outcome of ["accepted", "dismissed", "error"]) {
+    const h = setup();
+    h.render();
+    h.flush();
     let prompted = 0;
     let prevented = false;
     h.listeners.get("beforeinstallprompt")({
@@ -113,29 +183,49 @@ test("native install cancellation and failure keep manual help available", async
       },
       async prompt() {
         prompted++;
-        if (fail) throw new Error("not available");
+        if (outcome === "error") throw new Error("unavailable");
       },
-      userChoice: Promise.resolve({ outcome: "dismissed" }),
+      userChoice: Promise.resolve({ outcome }),
     });
-    const nativeButton = h
-      .all(h.render(), "button")
-      .find((b) => b.props.children === "Instalar en este dispositivo");
-    await nativeButton.props.onClick();
+    assert.equal(prompted, 0);
+    await button(h, "Instalar").props.onClick();
     assert.equal(prompted, 1);
     assert.equal(prevented, true);
-    const tree = h.render();
-    assert.match(JSON.stringify(tree), fail ? /no pudo abrir/ : /cancelado/);
-    assert.match(JSON.stringify(tree), /Añadir a pantalla de inicio/);
+    if (outcome === "accepted") assert.equal(h.dialog.open, false);
+    else {
+      assert.equal(h.dialog.open, true);
+      assert.match(JSON.stringify(h.render()), outcome === "error" ? /no pudo abrir/ : /cancelado/);
+      await button(h, "Instalar").props.onClick();
+      assert.equal(prompted, 1); // native events are single-use
+    }
   }
 });
 
-test("standalone and completed install are reported without offering another native prompt", () => {
-  for (const standalone of [true, false]) {
-    const h = setup(standalone);
+test("installed apps do not show invitation; installing before or after the timer closes it", () => {
+  const standalone = setup(true);
+  standalone.render();
+  standalone.flush();
+  assert.equal(standalone.dialog.open, false);
+  for (const early of [true, false]) {
+    const h = setup();
     h.render();
-    if (!standalone) h.listeners.get("appinstalled")();
-    const tree = h.render();
-    assert.equal(h.all(tree, "button")[0].props.children, "App instalada");
-    assert.match(JSON.stringify(tree), /Ya estás usando/);
+    if (!early) h.flush();
+    h.listeners.get("appinstalled")();
+    h.flush();
+    assert.equal(h.dialog.open, false);
   }
+});
+
+test("blocked storage does not prevent dismissal; cleanup removes listeners and timer", () => {
+  const h = setup(false, null, true);
+  h.render();
+  h.flush();
+  button(h, "Ahora no").props.onClick();
+  assert.equal(h.dialog.open, false);
+  const unmounted = setup();
+  unmounted.render();
+  unmounted.unmount();
+  unmounted.flush();
+  assert.equal(unmounted.dialog.open, false);
+  assert.equal(unmounted.listeners.size, 0);
 });

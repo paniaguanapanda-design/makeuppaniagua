@@ -8,7 +8,6 @@ import {
   PAINT_ZONES,
   type Depth,
   type Directory,
-  type FaceShape,
   type Intensities,
   type LookPlan,
   type Product,
@@ -19,6 +18,8 @@ import {
   ZONES,
   ZONE_LABEL,
 } from "@/lib/makeup/types";
+
+import { applicationInstruction } from "@/lib/makeup/consultation";
 
 const situationSchema = z.enum([
   "dia",
@@ -44,6 +45,9 @@ const recommendSchema = z.object({
     .max(8),
   note: z.string().max(800),
   skin: z.string().max(300),
+  minutes: z.enum(["5", "15", "30"]).default("15"),
+  intensity: z.enum(["suave", "media", "intensa"]).default("media"),
+  sensitivities: z.string().max(300).default(""),
 });
 
 type ProductRow = {
@@ -128,21 +132,14 @@ function parseIntensities(raw: string): Intensities {
   return intensities;
 }
 
-function tuneIntensities(intensities: Intensities, shape: FaceShape, depth: Depth): Intensities {
-  const next = { ...intensities };
-  if (shape === "redondo") next.contorno = Math.min(1, next.contorno + 0.12);
-  if (shape === "cuadrado") next.contorno = Math.min(1, next.contorno + 0.1);
-  if (shape === "corazon") {
-    next.iluminador = Math.max(0, next.iluminador - 0.08);
-    next.contorno = Math.min(1, next.contorno + 0.05);
-  }
-  if (shape === "alargado") {
-    next.contorno = Math.max(0, next.contorno - 0.08);
-    next.rubor = Math.max(0, next.rubor - 0.06);
-  }
-  if (depth === "profunda") next.base = Math.min(1, next.base + 0.08);
-  if (depth === "clara") next.base = Math.max(0, next.base - 0.05);
-  return next;
+function tuneIntensities(
+  intensities: Intensities,
+  intensity: "suave" | "media" | "intensa",
+): Intensities {
+  const factor = intensity === "suave" ? 0.7 : intensity === "intensa" ? 1.2 : 1;
+  return Object.fromEntries(
+    PAINT_ZONES.map((zone) => [zone, Math.min(1, intensities[zone] * factor)]),
+  ) as Intensities;
 }
 
 function scoreProduct(
@@ -163,13 +160,6 @@ function scoreProduct(
   if (product.priceEur <= 12) score += 2;
   if (product.priceEur > 20) score -= 8;
   if (age === "menor" && product.priceEur > 14) score -= 3;
-  if ((age === "madura" || age === "silver") && product.finish.includes("metal")) score -= 6;
-  if (
-    (age === "cuarenta" || age === "madura" || age === "silver") &&
-    /satinado|crema|luminoso|hidratante|brillo/.test(product.finish)
-  ) {
-    score += 2;
-  }
   if (tastes.includes("mate") && product.finish.includes("mate")) score += 3;
   if (tastes.includes("luminosa") && /luminoso|satinado|crema|brillo/.test(product.finish))
     score += 3;
@@ -334,8 +324,7 @@ export const recommendLook = createServerFn({ method: "POST" })
     `;
 
     const undertone = data.undertone as Undertone;
-    const depth = data.depth as Depth;
-    const shape = data.shape as FaceShape;
+    const depth = data.depth;
 
     const owned = new Set(data.owned);
     const age = data.age as AgeId;
@@ -374,7 +363,11 @@ export const recommendLook = createServerFn({ method: "POST" })
           order: Number(row.step_order),
           zone,
           title: ZONE_LABEL[zone],
-          instruction: option.instructions?.[zone] ?? row.instruction,
+          instruction: applicationInstruction(
+            zone,
+            option.instructions?.[zone] ?? row.instruction,
+            data,
+          ),
           product,
           tension: hasTension(product, undertone),
         };
@@ -406,7 +399,7 @@ export const recommendLook = createServerFn({ method: "POST" })
         signature: look.signature,
         years: Number(look.years),
       },
-      intensities: tuneIntensities(parseIntensities(look.intensities), shape, depth),
+      intensities: tuneIntensities(parseIntensities(look.intensities), data.intensity),
       steps,
       alternates,
     };
