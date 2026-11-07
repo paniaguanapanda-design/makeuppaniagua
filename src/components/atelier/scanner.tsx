@@ -14,7 +14,6 @@ export function ScannerScreen({ onCapture }: { onCapture: (capture: Capture) => 
   const [model, setModel] = useState<"loading" | "ready" | "error">("loading");
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [live, setLive] = useState(false);
-  const [photoConsent, setPhotoConsent] = useState(false);
   const [facing, setFacing] = useState<"user" | "environment">("user");
   const facingRef = useRef<"user" | "environment">("user");
   const [locked, setLocked] = useState(false);
@@ -135,18 +134,6 @@ export function ScannerScreen({ onCapture }: { onCapture: (capture: Capture) => 
       <p className="mx-auto mt-4 max-w-xl text-sm text-muted">
         Mira a la lente, con luz de frente. Al encontrar tu rostro, preparo tres referencias.
       </p>
-      <label className="photo-consent mx-auto mt-5 flex max-w-xl items-start gap-3 rounded-2xl px-4 py-4 text-sm">
-        <input
-          type="checkbox"
-          checked={photoConsent}
-          onChange={(event) => setPhotoConsent(event.target.checked)}
-          className="mt-1 size-4 shrink-0 accent-[var(--color-blush)]"
-        />
-        <span>
-          Entiendo que mi foto se enviará al servicio de IA de xAI para generar los looks. NEUSTA no
-          guarda la foto en su base de datos. Solo usaré una foto propia o con permiso.
-        </span>
-      </label>
       <div className="mt-8 grid items-start gap-8 lg:grid-cols-2">
         <div className="overflow-hidden rounded-2xl border border-line bg-ink">
           <div className="relative frame-portrait bg-ink">
@@ -204,7 +191,6 @@ export function ScannerScreen({ onCapture }: { onCapture: (capture: Capture) => 
                 <button
                   type="button"
                   data-testid="open-camera"
-                  disabled={!photoConsent}
                   onClick={() => void openCamera("user")}
                   className="min-h-11 rounded-full bg-ink px-6 text-surface"
                 >
@@ -213,7 +199,6 @@ export function ScannerScreen({ onCapture }: { onCapture: (capture: Capture) => 
                 <button
                   type="button"
                   data-testid="open-rear-camera"
-                  disabled={!photoConsent}
                   onClick={() => void openCamera("environment")}
                   className="min-h-11 rounded-full border border-line px-6"
                 >
@@ -232,7 +217,7 @@ export function ScannerScreen({ onCapture }: { onCapture: (capture: Capture) => 
                 key={portrait.id}
                 type="button"
                 data-testid={`studio-${portrait.id}`}
-                disabled={Boolean(busy) || !photoConsent}
+                disabled={Boolean(busy)}
                 onClick={() => void selectPortrait(portrait.src)}
                 className="overflow-hidden rounded-2xl border border-line bg-surface text-left"
               >

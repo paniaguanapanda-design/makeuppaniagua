@@ -572,7 +572,6 @@ h2 em {
   color: var(--color-blush);
 }
 
-.photo-consent,
 .review-card,
 .review-thanks {
   border: 1px solid rgb(255 255 255 / 84%);
@@ -582,10 +581,6 @@ h2 em {
     inset 0 1px 0 rgb(255 255 255 / 82%);
   -webkit-backdrop-filter: blur(18px) saturate(145%);
   backdrop-filter: blur(18px) saturate(145%);
-}
-
-.photo-consent {
-  text-align: center;
 }
 
 .review-page {
@@ -658,7 +653,6 @@ h2 em {
   .occasion-tile,
   .look-card,
   .look-choice-card,
-  .photo-consent,
   .review-card,
   .review-thanks,
   .home-cta,
