@@ -13,7 +13,15 @@ const BASE: Record<Depth, string> = { clara: "#e8c4ac", media: "#d0a07f", profun
 const LEVEL: Record<OptionId, Partial<Record<PaintZone, number>>> = {
   natural: { base: 0.35, cejas: 0.55, rubor: 0.4, labios: 0.42 },
   medio: { base: 0.5, cejas: 0.6, rubor: 0.5, ojos: 0.45, labios: 0.55, iluminador: 0.45 },
-  glam: { base: 0.6, cejas: 0.68, contorno: 0.5, rubor: 0.6, ojos: 0.7, labios: 0.7, iluminador: 0.5 },
+  glam: {
+    base: 0.6,
+    cejas: 0.68,
+    contorno: 0.5,
+    rubor: 0.6,
+    ojos: 0.7,
+    labios: 0.7,
+    iluminador: 0.5,
+  },
 };
 
 function recipeFor(card: ReferenceCard, capture: Capture, owned: ZoneId[]): Recipe {
@@ -22,7 +30,10 @@ function recipeFor(card: ReferenceCard, capture: Capture, owned: ZoneId[]): Reci
   const depth = read?.depth ?? "media";
   const level = LEVEL[card.id];
   const shown = new Set<string>(
-    visibleZones({ id: card.id, title: card.title, line: card.line, prompt: "", zones: card.zones }, owned),
+    visibleZones(
+      { id: card.id, title: card.title, line: card.line, prompt: "", zones: card.zones },
+      owned,
+    ),
   );
   const hex: Record<PaintZone, string> = {
     base: BASE[depth],
@@ -57,6 +68,7 @@ export function renderCard(
     situation,
     read: capture.read,
     boost: 1.1,
+    level: card.id,
   });
   return target.toDataURL("image/jpeg", 0.88);
 }
