@@ -18,6 +18,7 @@ const STORAGE_KEY = "neusta-lang";
 type Dict = Record<string, string>;
 
 const es: Dict = {
+  "opt.aiPending": "✨ IA…",
   "lang.name": "Español",
   "common.back": "Volver",
   "common.stylists": "Estilistas",
@@ -306,6 +307,7 @@ const es: Dict = {
 };
 
 const en: Dict = {
+  "opt.aiPending": "✨ AI…",
   "lang.name": "English",
   "common.back": "Back",
   "common.stylists": "Stylists",
@@ -596,6 +598,7 @@ const en: Dict = {
 };
 
 const it: Dict = {
+  "opt.aiPending": "✨ IA…",
   "lang.name": "Italiano",
   "common.back": "Indietro",
   "common.stylists": "Truccatori",

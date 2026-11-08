@@ -167,9 +167,12 @@ export function referencePrompt(
 ) {
   const zones = visibleZones(option, owned);
   return [
-    "Edit this photograph. Keep the exact same person: same face, age, identity, hair, expression, pose, clothing and background.",
-    "Do not replace them with another model. Do not paste makeup on top like a filter or face paint.",
-    "Show a real photograph of this person after a makeup artist finished the look, blended into their skin.",
+    "Edit this photograph by ONLY adding makeup. Keep the exact same person: same face, age, identity, hair, expression, pose, clothing, lighting and background.",
+    "IDENTITY IS THE TOP PRIORITY: she must be instantly recognizable to her friends. Do not change the shape or size of the eyes, nose, lips, eyebrows bone, jaw, cheeks or face. No slimming, no lifting, no reshaping, no younger look.",
+    "DO NOT RETOUCH OR BEAUTIFY THE SKIN: keep real skin texture, pores, freckles, moles, fine lines and natural unevenness visible. No airbrushing, no smoothing, no blur, no glow filter, no plastic skin.",
+    "Foundation and concealer only even out tone slightly and must still show the skin texture underneath; blemishes can look softened, never erased.",
+    "Do not replace her with another model. Do not paste makeup on top like a filter or face paint.",
+    "Show a real, unretouched photograph of this person after a makeup artist finished the look, blended into her own skin.",
     "The makeup is affordable and everyday, not a luxury campaign.",
     SHAPE_FIT[read.shape],
     TONE_FIT[read.undertone],

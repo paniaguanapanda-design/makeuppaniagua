@@ -9,6 +9,7 @@ export function OptionsScreen({
   read,
   analysis,
   analyzing,
+  aiPending,
   summary,
   skinLine,
   readingSkin,
@@ -22,6 +23,8 @@ export function OptionsScreen({
   read: FaceRead | null;
   analysis: FaceAnalysis | null;
   analyzing: boolean;
+  /** True mientras la imagen con IA de esa tarjeta todavía no ha llegado. */
+  aiPending: (cardId: string) => boolean;
   summary: string;
   skinLine: string;
   readingSkin: boolean;
@@ -130,7 +133,14 @@ export function OptionsScreen({
                 aria-label={`${t(`level.${item.id}`)}: ${t(`line.${situation}.${item.id}`)}`}
                 className="look-choice-card"
               >
-                <img src={item.imageUrl} alt="" className="look-choice-image object-cover" />
+                <span className="relative shrink-0">
+                  <img src={item.imageUrl} alt="" className="look-choice-image object-cover" />
+                  {aiPending(item.id) ? (
+                    <span className="ai-badge" aria-live="polite">
+                      {t("opt.aiPending")}
+                    </span>
+                  ) : null}
+                </span>
                 <span className="min-w-0 flex-1 py-3 pr-4 text-left">
                   <span className="block font-display text-[1.4rem] leading-tight">
                     {t(`level.${item.id}`)}

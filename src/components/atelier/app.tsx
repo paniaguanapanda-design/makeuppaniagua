@@ -37,6 +37,8 @@ export function AtelierApp() {
   const [kitDraft, setKitDraft] = useState<KitDraft | null>(null);
   const [seen, setSeen] = useState({ skin: "", fromPhoto: false });
   const upgraded = useRef(new Set<string>());
+  // Estado de la imagen con IA de cada tarjeta (clave: foto:look). Sin entrada = aún pendiente.
+  const [aiState, setAiState] = useState<Record<string, "done" | "failed">>({});
   const [aiNote, setAiNote] = useState("");
   const [signOutError, setSignOutError] = useState("");
   const { t, lang } = useLang();
@@ -159,12 +161,14 @@ export function AtelierApp() {
         .then((res) => {
           if (shotRef.current !== shot) return;
           setAiNote("ok");
+          setAiState((prev) => ({ ...prev, [id]: "done" }));
           setCards(
             (prev) =>
               prev?.map((c) => (c.id === card.id ? { ...c, imageUrl: res.imageUrl } : c)) ?? prev,
           );
         })
         .catch((error: unknown) => {
+          setAiState((prev) => ({ ...prev, [id]: "failed" }));
           if (shotRef.current === shot)
             setAiNote(error instanceof Error ? error.message.slice(0, 160) : "error");
         });
@@ -352,6 +356,7 @@ export function AtelierApp() {
           read={capture?.read ?? null}
           analysis={analysis}
           analyzing={analyzing}
+          aiPending={(cardId) => !aiState[`${shot}:${cardId}`]}
           summary={profile ? profile.tastes.map((id) => t(`taste.${id}`)).join(", ") : ""}
           skinLine={
             profile?.skin

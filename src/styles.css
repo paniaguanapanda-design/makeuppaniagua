@@ -694,3 +694,32 @@ h2 em {
 .app-shell {
   padding-bottom: var(--install-h, 0px);
 }
+
+/* Aviso sobre la miniatura mientras llega la imagen con IA. */
+.ai-badge {
+  position: absolute;
+  top: 0.35rem;
+  right: 0.35rem;
+  white-space: nowrap;
+  border-radius: 9999px;
+  background: rgb(255 255 255 / 82%);
+  padding: 0.2rem 0.45rem;
+  text-align: center;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--color-blush);
+  backdrop-filter: blur(6px);
+  animation: ai-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes ai-pulse {
+  50% {
+    opacity: 0.55;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ai-badge {
+    animation: none;
+  }
+}
