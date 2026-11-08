@@ -87,7 +87,7 @@ export function KitScreen({
 
   return (
     <div className="mx-auto max-w-3xl px-4 pb-28 pt-8">
-      <p className="text-xs tracking-widest text-muted uppercase">Paso 2</p>
+      <p className="step-eyebrow">Paso 2 de 4</p>
       <h1 className="mt-3 text-4xl sm:text-6xl">Cuéntame cómo te maquillas</h1>
       <p className="mt-4 text-muted">
         No hay una lista de marcas. Escribe lo que usas, con tus palabras, y cómo está tu piel. Si
