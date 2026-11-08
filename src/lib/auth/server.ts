@@ -82,8 +82,7 @@ const grokClientId = env("GROK_AUTH_CLIENT_ID") ?? PREVIEW_CLIENT_ID;
 const grokClientSecret = env("GROK_AUTH_CLIENT_SECRET") ?? PREVIEW_CLIENT_SECRET;
 
 /** True when federated sign-in is active (real auth is enforced). */
-export const authConfigured =
-  !authDisabled && Boolean(grokClientId && grokClientSecret);
+export const authConfigured = !authDisabled && Boolean(grokClientId && grokClientSecret);
 
 // This app's own Better Auth origin. When deployed the deployer injects the
 // public URL. In the sandbox live preview there's no fixed URL (each preview gets
@@ -126,6 +125,12 @@ const trustedOrigins: string[] = explicitBaseURL
     ];
 
 const databaseUrl = env("DATABASE_URL");
+
+// Acceso directo con Google (cuenta de Google Cloud de NEUSTA). Solo se activa
+// cuando están las dos claves; sin ellas, el botón no aparece.
+const googleClientId = env("GOOGLE_CLIENT_ID");
+const googleClientSecret = env("GOOGLE_CLIENT_SECRET");
+export const googleSignInEnabled = Boolean(googleClientId && googleClientSecret);
 
 // Static broker OAuth endpoints (skip OIDC discovery on every sign-in / callback).
 // Discovery would cost an extra network hop to the broker before the popup can
@@ -197,12 +202,26 @@ export const auth = betterAuth({
       trustedProviders: [
         ...GROK_PROVIDERS.map((p) => p.providerId),
         GATE_PROVIDER_ID,
+        // Google verifica el correo: si ya tenía cuenta con ese correo, se une.
+        "google",
       ],
       // X's synthetic email is never "verified", so don't gate linking on the
       // local user's email-verified state.
       requireLocalEmailVerified: false,
     },
   },
+
+  ...(googleSignInEnabled
+    ? {
+        socialProviders: {
+          google: {
+            clientId: googleClientId as string,
+            clientSecret: googleClientSecret as string,
+            prompt: "select_account" as const,
+          },
+        },
+      }
+    : {}),
 
   // Read sessions from the database so password resets revoke access immediately.
   session: { cookieCache: { enabled: false } },
@@ -237,9 +256,13 @@ export const auth = betterAuth({
                 }),
                 signal: AbortSignal.timeout(10_000),
               });
-              if (!response.ok) console.error(`[auth] Password reset email failed: HTTP ${response.status}`);
+              if (!response.ok)
+                console.error(`[auth] Password reset email failed: HTTP ${response.status}`);
             } catch (error) {
-              console.error("[auth] Password reset email failed:", error instanceof Error ? error.name : "UnknownError");
+              console.error(
+                "[auth] Password reset email failed:",
+                error instanceof Error ? error.name : "UnknownError",
+              );
             }
           },
         },

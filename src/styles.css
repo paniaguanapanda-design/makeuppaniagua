@@ -72,7 +72,7 @@
   display: grid;
   min-height: 100svh;
   place-items: center;
-  padding: 2rem 1rem;
+  padding: 2rem 1rem calc(2rem + var(--install-h, 0px));
 }
 
 .access-card {
