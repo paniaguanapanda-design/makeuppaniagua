@@ -39,13 +39,26 @@ export const aiLook = createServerFn({ method: "POST" })
   .handler(async ({ data, context }): Promise<{ imageUrl: string }> => {
     const grokKey = process.env.XAI_API_KEY;
     const key = process.env.GEMINI_API_KEY;
-    if (!grokKey && !key) throw new Error("sin-clave");
+    if (!grokKey && !key) {
+      console.error("[ai-look] sin XAI_API_KEY ni GEMINI_API_KEY en el servidor");
+      throw new Error("sin-clave");
+    }
     const { refundImageQuota, takeImageQuota } = await import("./quota.server");
-    if (!(await takeImageQuota(context.userId))) throw new Error("limite-diario");
+    if (!(await takeImageQuota(context.userId))) {
+      console.log(`[ai-look] límite diario alcanzado (${data.optionId})`);
+      throw new Error("limite-diario");
+    }
     // Si la imagen no llega, se devuelve el cupo: solo cuentan las que se generan.
+    const started = Date.now();
     try {
-      return await generate(data, grokKey, key);
+      const result = await generate(data, grokKey, key);
+      console.log(`[ai-look] imagen ${data.optionId} generada en ${Date.now() - started} ms`);
+      return result;
     } catch (error) {
+      console.error(
+        `[ai-look] fallo ${data.optionId} tras ${Date.now() - started} ms:`,
+        error instanceof Error ? error.message : String(error),
+      );
       await refundImageQuota(context.userId);
       throw error;
     }
