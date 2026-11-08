@@ -265,7 +265,7 @@
 .app-fixed-bar {
   position: fixed;
   z-index: 30;
-  bottom: 0;
+  bottom: var(--install-h, 0px);
   left: 50%;
   width: min(100%, 430px);
   padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
@@ -682,4 +682,15 @@ h2 em {
   .review-star:hover {
     transform: none;
   }
+}
+
+/* La tarjeta de la portada sube lo que ocupe el aviso de instalación. */
+.home-card {
+  bottom: calc(0.875rem + var(--install-h, 0px));
+  transition: bottom 200ms ease;
+}
+
+/* Las pantallas largas dejan sitio al aviso de instalación al final. */
+.app-shell {
+  padding-bottom: var(--install-h, 0px);
 }

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { KitScreen } from "@/components/atelier/kit";
+import { KitScreen, type KitDraft } from "@/components/atelier/kit";
 import { DirectoryScreen, HomeScreen, OccasionScreen } from "@/components/atelier/screens";
 import { OptionsScreen } from "@/components/atelier/options";
 import { ScannerScreen } from "@/components/atelier/scanner";
@@ -10,7 +10,9 @@ import { renderCard } from "@/lib/makeup/preview";
 import { noteZones, personLine, type PersonBrief } from "@/lib/makeup/profile";
 import { getDirectory, recommendLook } from "@/lib/makeup/server";
 import type { Capture, Directory, LookPlan, SituationId } from "@/lib/makeup/types";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, LogOut, Users } from "lucide-react";
+import { analysisLine, analyzeFace, type FaceAnalysis } from "@/lib/makeup/analysis";
+import { jpegDataUrl } from "@/lib/makeup/photo";
 import { signOut } from "@/lib/auth/client";
 
 const referenceJobs = new Map<string, Promise<ReferenceResult>>();
@@ -19,7 +21,6 @@ type View = "home" | "occasion" | "kit" | "scan" | "options" | "steps" | "direct
 
 export function AtelierApp() {
   const [view, setView] = useState<View>("home");
-  const [backTo, setBackTo] = useState<View>("home");
   const [situation, setSituation] = useState<SituationId | null>(null);
   const [capture, setCapture] = useState<Capture | null>(null);
   const [directory, setDirectory] = useState<Directory | null>(null);
@@ -32,10 +33,15 @@ export function AtelierApp() {
   const [shot, setShot] = useState(0);
   const [chosen, setChosen] = useState<ReferenceCard | null>(null);
   const [profile, setProfile] = useState<PersonBrief | null>(null);
+  const [kitDraft, setKitDraft] = useState<KitDraft | null>(null);
   const [seen, setSeen] = useState({ skin: "", fromPhoto: false });
   const upgraded = useRef(new Set<string>());
   const [aiNote, setAiNote] = useState("");
   const [signOutError, setSignOutError] = useState("");
+  const [analysis, setAnalysis] = useState<FaceAnalysis | null>(null);
+  const [analyzing, setAnalyzing] = useState(false);
+  const analyzedShot = useRef(-1);
+  const analysisSkin = analysis ? analysisLine(analysis) : "";
   const shotRef = useRef(0);
   shotRef.current = shot;
 
@@ -61,19 +67,22 @@ export function AtelierApp() {
         situation,
         undertone: read?.undertone ?? "neutro",
         depth: read?.depth ?? "media",
-        shape: read?.shape ?? "ovalado",
+        shape: analysis?.shape ?? read?.shape ?? "ovalado",
         owned: [],
         age: profile?.age ?? "joven",
         tastes: profile?.tastes ?? [],
         note: profile?.note ?? "",
-        skin: profile?.skin || seen.skin,
+        skin: [profile?.skin || seen.skin, analysisSkin]
+          .filter(Boolean)
+          .join(". En la foto: ")
+          .slice(0, 300),
       },
     })
       .then((data) => setPlan(data))
       .catch((error: unknown) => {
         setPlanError(error instanceof Error ? error.message : "No pude armar el look.");
       });
-  }, [situation, capture, profile, seen.skin]);
+  }, [situation, capture, profile, seen.skin, analysis, analysisSkin]);
 
   useEffect(() => {
     loadDirectory();
@@ -100,7 +109,10 @@ export function AtelierApp() {
       .then((data) => {
         if (!alive) return;
         setCards(
-          data.cards.map((card) => ({ ...card, imageUrl: renderCard(card, capture, situation, owned) })),
+          data.cards.map((card) => ({
+            ...card,
+            imageUrl: renderCard(card, capture, situation, owned),
+          })),
         );
         setSeen({ skin: data.skinSeen, fromPhoto: data.skinFromPhoto });
         setCardsError(null);
@@ -120,8 +132,9 @@ export function AtelierApp() {
 
   // Con clave de Gemini, cada tarjeta se mejora con una foto editada por IA. Si falla, queda el pintado local.
   useEffect(() => {
-    if (view !== "options" || !cards || !capture?.read || !situation) return;
+    if (view !== "options" || !cards || !capture?.read || !situation || analyzing) return;
     const read = capture.read;
+    const skin = [profile?.skin, analysisSkin].filter(Boolean).join(". ").slice(0, 400);
     const owned = noteZones(profile?.note ?? "");
     const jpeg = capture.photo.toDataURL("image/jpeg", 0.85);
     for (const card of cards) {
@@ -137,22 +150,91 @@ export function AtelierApp() {
           shape: read.shape,
           owned,
           photo: jpeg,
+          skin: skin || undefined,
         },
       })
         .then((res) => {
           if (shotRef.current !== shot) return;
           setAiNote("ok");
-          setCards((prev) => prev?.map((c) => (c.id === card.id ? { ...c, imageUrl: res.imageUrl } : c)) ?? prev);
+          setCards(
+            (prev) =>
+              prev?.map((c) => (c.id === card.id ? { ...c, imageUrl: res.imageUrl } : c)) ?? prev,
+          );
         })
         .catch((error: unknown) => {
-          if (shotRef.current === shot) setAiNote(error instanceof Error ? error.message.slice(0, 160) : "error");
+          if (shotRef.current === shot)
+            setAiNote(error instanceof Error ? error.message.slice(0, 160) : "error");
         });
     }
-  }, [view, cards, capture, situation, profile, shot]);
+  }, [view, cards, capture, situation, profile, shot, analyzing, analysisSkin]);
+
+  // La maquilladora mira el rostro y la piel una vez por foto.
+  useEffect(() => {
+    if (view !== "options" || !capture || analyzedShot.current === shot) return;
+    analyzedShot.current = shot;
+    setAnalysis(null);
+    setAnalyzing(true);
+    analyzeFace({ data: { photo: jpegDataUrl(capture.photo) } })
+      .then((result) => {
+        if (shotRef.current === shot) setAnalysis(result);
+      })
+      .catch(() => undefined)
+      .finally(() => {
+        if (shotRef.current === shot) setAnalyzing(false);
+      });
+  }, [view, capture, shot]);
+
+  // --- Navegación con el historial: el gesto "atrás" del móvil vuelve a la pantalla anterior.
+  const viewRef = useRef<View>("home");
+  viewRef.current = view;
+  const ready = useRef({ situation, capture, chosen });
+  ready.current = { situation, capture, chosen };
+
+  const go = useCallback((next: View) => {
+    if (viewRef.current === next) return;
+    viewRef.current = next;
+    try {
+      window.history.pushState({ ...(window.history.state ?? {}), neusta: next }, "");
+    } catch {
+      /* sin historial: navegamos igual */
+    }
+    setView(next);
+  }, []);
+
+  useEffect(() => {
+    try {
+      window.history.replaceState({ ...(window.history.state ?? {}), neusta: "home" }, "");
+    } catch {
+      /* ignore */
+    }
+    const onPop = (event: PopStateEvent) => {
+      const wanted = (event.state as { neusta?: View } | null)?.neusta ?? "home";
+      const { situation: s, capture: c, chosen: ch } = ready.current;
+      const ok =
+        wanted === "home" ||
+        wanted === "directory" ||
+        wanted === "occasion" ||
+        ((wanted === "kit" || wanted === "scan") && Boolean(s)) ||
+        (wanted === "options" && Boolean(s && c)) ||
+        (wanted === "steps" && Boolean(s && ch));
+      setView(ok ? wanted : "home");
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
+
+  useEffect(() => {
+    window.scrollTo({ top: 0 });
+  }, [view]);
+
+  function back() {
+    const state = window.history.state as { neusta?: View } | null;
+    if (state?.neusta && state.neusta !== "home") window.history.back();
+    else setView("home");
+  }
 
   function openDirectory() {
-    setBackTo(view === "directory" ? backTo : view);
-    setView("directory");
+    go("directory");
   }
 
   return (
@@ -160,65 +242,76 @@ export function AtelierApp() {
       <header className="sticky top-0 z-20 border-b border-line bg-surface/90 shadow-[0_8px_24px_rgba(131,24,67,0.06)] backdrop-blur-md">
         <div className="h-0.5 bg-blush" />
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
-          <button type="button" onClick={() => setView("home")} className="font-display text-xl tracking-wide">
+          <button
+            type="button"
+            onClick={() => go("home")}
+            className="font-display text-xl tracking-wide"
+          >
             NEUSTA
           </button>
-          <nav className="flex items-center gap-1">
+          <nav className="flex items-center gap-1" aria-label="Secciones">
             {view !== "home" ? (
               <button
                 type="button"
-                onClick={() =>
-                  setView(
-                    view === "directory"
-                      ? backTo
-                      : view === "steps"
-                        ? "options"
-                        : view === "options"
-                          ? "scan"
-                          : view === "scan"
-                            ? "kit"
-                            : view === "kit"
-                              ? "occasion"
-                              : "home",
-                  )
-                }
+                onClick={back}
                 className="inline-flex min-h-11 items-center gap-1 px-3 text-sm"
               >
                 <ArrowLeft className="size-4" aria-hidden="true" />
                 Volver
               </button>
             ) : null}
+            <button
+              type="button"
+              onClick={openDirectory}
+              aria-label="Estilistas"
+              className="inline-grid min-h-11 min-w-11 place-items-center rounded-full"
+            >
+              <Users className="size-5" strokeWidth={1.6} aria-hidden="true" />
+            </button>
+            {view === "home" ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setSignOutError("");
+                  void signOut().catch(() =>
+                    setSignOutError("No se pudo cerrar sesión. Inténtalo de nuevo."),
+                  );
+                }}
+                aria-label="Cerrar sesión"
+                className="inline-grid min-h-11 min-w-11 place-items-center rounded-full"
+              >
+                <LogOut className="size-5" strokeWidth={1.6} aria-hidden="true" />
+              </button>
+            ) : null}
           </nav>
         </div>
       </header>
-      {signOutError && <p role="alert" className="px-4 py-2 text-sm">{signOutError}</p>}
-      {view === "home" ? (
-        <HomeScreen
-          onStart={() => setView("occasion")}
-          onDirectory={openDirectory}
-          onSignOut={() => {
-            setSignOutError("");
-            void signOut().catch(() => setSignOutError("No se pudo cerrar sesión. Inténtalo de nuevo."));
-          }}
-        />
-      ) : null}
+      {signOutError && (
+        <p role="alert" className="px-4 py-2 text-sm">
+          {signOutError}
+        </p>
+      )}
+      {view === "home" ? <HomeScreen onStart={() => go("occasion")} /> : null}
       {view === "occasion" ? (
         <OccasionScreen
           onPick={(id) => {
             setSituation(id);
+            ready.current.situation = id;
             setPlan(null);
-            setView("kit");
+            go("kit");
           }}
         />
       ) : null}
       {view === "kit" ? (
         <KitScreen
+          initial={kitDraft}
+          onDraft={setKitDraft}
           onContinue={(person) => {
             setProfile(person);
             setCards(null);
             setCardsError(null);
             setChosen(null);
-            setView("scan");
+            go("scan");
           }}
         />
       ) : null}
@@ -231,20 +324,23 @@ export function AtelierApp() {
             setCardsError(null);
             setChosen(null);
             setSeen({ skin: "", fromPhoto: false });
+            ready.current.capture = next;
             setShot((value) => value + 1);
-            setView("options");
+            go("options");
           }}
         />
       ) : null}
-      {view === "options" && aiNote ? (
+      {view === "options" && aiNote && aiNote !== "ok" && import.meta.env.DEV ? (
         <p className="mx-auto max-w-6xl px-4 pt-2 text-center text-xs text-muted">
-          {aiNote === "ok" ? "IA: foto mejorada" : `IA no disponible: ${aiNote}`}
+          IA no disponible: {aiNote}
         </p>
       ) : null}
       {view === "options" && situation ? (
         <OptionsScreen
           situation={situation}
           read={capture?.read ?? null}
+          analysis={analysis}
+          analyzing={analyzing}
           summary={profile ? personLine(profile) : ""}
           skinLine={
             profile?.skin
@@ -264,7 +360,8 @@ export function AtelierApp() {
           }}
           onChoose={(card) => {
             setChosen(card);
-            setView("steps");
+            ready.current.chosen = card;
+            go("steps");
           }}
         />
       ) : null}
@@ -281,6 +378,7 @@ export function AtelierApp() {
           skinFromPhoto={!profile?.skin && seen.fromPhoto}
           kit={profile?.kit ?? null}
           summary={profile ? personLine(profile) : ""}
+          photo={capture?.source === "camera" ? jpegDataUrl(capture.photo) : undefined}
         />
       ) : null}
       {view === "directory" ? (

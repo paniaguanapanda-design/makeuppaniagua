@@ -11,11 +11,9 @@ const BASE: Record<Depth, string> = { clara: "#e8c4ac", media: "#d0a07f", profun
 
 /** Qué tan fuerte se pinta cada zona en cada nivel. 0 = no se pinta. */
 const LEVEL: Record<OptionId, Partial<Record<PaintZone, number>>> = {
-  piel: { cejas: 0.45, labios: 0.3 },
-  poco: { cejas: 0.5, rubor: 0.3, labios: 0.35 },
   natural: { base: 0.35, cejas: 0.55, rubor: 0.4, labios: 0.42 },
-  definido: { base: 0.5, cejas: 0.6, rubor: 0.5, labios: 0.5, iluminador: 0.45 },
-  cargado: { base: 0.6, cejas: 0.65, contorno: 0.5, rubor: 0.6, ojos: 0.6, labios: 0.6, iluminador: 0.4 },
+  medio: { base: 0.5, cejas: 0.6, rubor: 0.5, ojos: 0.45, labios: 0.55, iluminador: 0.45 },
+  glam: { base: 0.6, cejas: 0.68, contorno: 0.5, rubor: 0.6, ojos: 0.7, labios: 0.7, iluminador: 0.5 },
 };
 
 function recipeFor(card: ReferenceCard, capture: Capture, owned: ZoneId[]): Recipe {

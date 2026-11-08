@@ -7,14 +7,9 @@ import {
   Mic,
   Moon,
   Sun,
-  ArrowRight,
   type LucideIcon,
 } from "lucide-react";
-import {
-  SITUATIONS,
-  type Directory,
-  type SituationId,
-} from "@/lib/makeup/types";
+import { SITUATIONS, type Directory, type SituationId } from "@/lib/makeup/types";
 
 const ICONS: Record<SituationId, LucideIcon> = {
   dia: Sun,
@@ -34,18 +29,10 @@ const TIER_LABEL: Record<string, string> = {
   accesible: "Accesible",
 };
 
-export function HomeScreen({
-  onStart,
-  onDirectory,
-  onSignOut,
-}: {
-  onStart: () => void;
-  onDirectory: () => void;
-  onSignOut: () => void;
-}) {
+export function HomeScreen({ onStart }: { onStart: () => void }) {
   return (
     <main data-testid="home" className="flex flex-col text-center">
-      <section className="relative min-h-[100svh] overflow-hidden bg-clay">
+      <section className="relative min-h-[calc(100svh-4.25rem)] overflow-hidden bg-clay">
         <img
           src="/studio/home-portrait.png"
           alt="Retrato de estudio, una de las referencias de NEUSTA"
@@ -54,34 +41,21 @@ export function HomeScreen({
         <div className="absolute inset-0 bg-gradient-to-b from-bg/35 via-transparent via-30% to-[#e9b6c0]/35" />
         <p className="brand absolute inset-x-0 top-8 text-ink">NEUSTA</p>
 
-        <div className="glass absolute inset-x-3.5 bottom-3.5 rounded-[2rem] px-5 pb-5 pt-7">
+        <div className="home-card glass absolute inset-x-3.5 rounded-[2rem] px-5 pb-5 pt-7">
           <h1 className="text-[2.6rem] leading-[1.02]">
             Tu look,
             <br />
             <em>a tu medida</em>
           </h1>
           <div className="hair" />
-          <p className="mb-5 text-[13px] leading-6 text-muted">Elige la ocasión y te guiamos.</p>
-          <div className="flex flex-col gap-2.5">
-            <button
-              type="button"
-              data-testid="start"
-              onClick={onStart}
-              className="bg-ink min-h-[3.1rem] px-6 text-[14px] font-medium"
-            >
-              Empezar
-            </button>
-            <button
-              type="button"
-              onClick={onDirectory}
-              className="min-h-11 rounded-full border border-blush/35 bg-white/55 px-6 text-[13px] font-medium text-blush"
-            >
-              Explorar estilistas
-            </button>
-            <button type="button" onClick={onSignOut} className="min-h-11 text-[12px] font-medium text-ink underline underline-offset-4">
-              Cerrar sesión
-            </button>
-          </div>
+          <button
+            type="button"
+            data-testid="start"
+            onClick={onStart}
+            className="bg-ink mt-1 min-h-[3.1rem] w-full px-6 text-[14px] font-medium"
+          >
+            Empezar
+          </button>
         </div>
       </section>
     </main>
@@ -115,7 +89,9 @@ export function OccasionScreen({ onPick }: { onPick: (id: SituationId) => void }
               className="occasion-tile flex min-h-[7rem] flex-col items-center justify-center gap-1.5 px-3 py-4 text-center"
             >
               <Icon className="size-[22px] text-blush" strokeWidth={1.5} aria-hidden="true" />
-              <span className="block font-display text-[1.4rem] font-semibold leading-none">{item.label}</span>
+              <span className="block font-display text-[1.4rem] font-semibold leading-none">
+                {item.label}
+              </span>
               <span className="block text-[11px] text-muted">{item.line}</span>
             </button>
           );
@@ -140,7 +116,11 @@ export function DirectoryScreen({
         <h1 className="text-4xl">Directorio</h1>
         <p className="mt-4 text-muted">{error ?? "Abriendo casas y estilistas."}</p>
         {error ? (
-          <button type="button" onClick={onRetry} className="mt-6 min-h-11 rounded-full bg-ink px-5 text-surface">
+          <button
+            type="button"
+            onClick={onRetry}
+            className="mt-6 min-h-11 rounded-full bg-ink px-5 text-surface"
+          >
             Reintentar
           </button>
         ) : null}
@@ -153,13 +133,16 @@ export function DirectoryScreen({
       <p className="text-xs tracking-widest text-muted uppercase">Catálogo editorial</p>
       <h1 className="mt-3 text-4xl sm:text-6xl">Casas y estilistas</h1>
       <p className="mt-4 max-w-2xl text-muted">
-        Referencia para armar el look. No es una tienda ni una cita real con estas personas:
-        el roster de estilistas es de la casa NEUSTA.
+        Referencia para armar el look. No es una tienda ni una cita real con estas personas: el
+        roster de estilistas es de la casa NEUSTA.
       </p>
       <h2 className="mt-12 text-3xl">Estilistas</h2>
       <ul className="mt-4 divide-y divide-line border-y border-line">
         {directory.stylists.map((stylist) => (
-          <li key={stylist.id} className="grid gap-2 py-5 sm:grid-cols-[1fr_auto] sm:items-baseline">
+          <li
+            key={stylist.id}
+            className="grid gap-2 py-5 sm:grid-cols-[1fr_auto] sm:items-baseline"
+          >
             <div>
               <p className="font-display text-2xl">{stylist.name}</p>
               <p className="text-sm text-muted">

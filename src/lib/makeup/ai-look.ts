@@ -1,17 +1,33 @@
 import { createServerFn } from "@tanstack/react-start";
 import { authMiddleware } from "@/lib/auth/middleware";
 import { z } from "zod";
+import { skinPrompt } from "@/lib/makeup/profile";
 import { optionsFor, referencePrompt } from "@/lib/makeup/references";
 import type { SituationId, ZoneId } from "@/lib/makeup/types";
 
 const schema = z.object({
-  situation: z.enum(["dia", "oficina", "entrevista", "cita", "boda", "fiesta", "fotos", "editorial"]),
-  optionId: z.enum(["piel", "poco", "natural", "definido", "cargado"]),
+  situation: z.enum([
+    "dia",
+    "oficina",
+    "entrevista",
+    "cita",
+    "boda",
+    "fiesta",
+    "fotos",
+    "editorial",
+  ]),
+  optionId: z.enum(["natural", "medio", "glam"]),
   undertone: z.enum(["calido", "frio", "neutro"]),
   depth: z.enum(["clara", "media", "profunda"]),
   shape: z.enum(["ovalado", "redondo", "cuadrado", "corazon", "alargado"]),
-  owned: z.array(z.enum(["base", "cejas", "contorno", "rubor", "iluminador", "ojos", "labios", "fijador"])).max(8),
+  owned: z
+    .array(
+      z.enum(["base", "cejas", "contorno", "rubor", "iluminador", "ojos", "labios", "fijador"]),
+    )
+    .max(8),
   photo: z.string().startsWith("data:image/jpeg;base64,").max(1_600_000),
+  /** Lo que la maquilladora vio en la piel y lo que contó la usuaria. */
+  skin: z.string().max(400).optional(),
 });
 
 type GeminiPart = { inlineData?: { mimeType?: string; data?: string } };
@@ -20,18 +36,21 @@ type GeminiPart = { inlineData?: { mimeType?: string; data?: string } };
 export const aiLook = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
   .validator(schema)
-  .handler(async ({ data }): Promise<{ imageUrl: string }> => {
+  .handler(async ({ data, context }): Promise<{ imageUrl: string }> => {
     const grokKey = process.env.XAI_API_KEY;
     const key = process.env.GEMINI_API_KEY;
     if (!grokKey && !key) throw new Error("sin-clave");
+    const { takeImageQuota } = await import("./quota.server");
+    if (!(await takeImageQuota(context.userId))) throw new Error("limite-diario");
     const option = optionsFor(data.situation as SituationId).find((o) => o.id === data.optionId);
     if (!option) throw new Error("look-desconocido");
-    const prompt = referencePrompt(
-      data.situation as SituationId,
-      option,
-      { shape: data.shape, undertone: data.undertone, depth: data.depth, skinHex: "#000000" },
-      data.owned as ZoneId[],
-    );
+    const prompt =
+      referencePrompt(
+        data.situation as SituationId,
+        option,
+        { shape: data.shape, undertone: data.undertone, depth: data.depth, skinHex: "#000000" },
+        data.owned as ZoneId[],
+      ) + (data.skin ? ` ${skinPrompt(data.skin, true)}` : "");
     if (grokKey) {
       const edit = await fetch("https://api.x.ai/v1/images/edits", {
         method: "POST",
@@ -55,7 +74,9 @@ export const aiLook = createServerFn({ method: "POST" })
       const file = await fetch(item.url, { signal: AbortSignal.timeout(20_000) });
       if (!file.ok) throw new Error("grok-descarga");
       const bytes = Buffer.from(await file.arrayBuffer()).toString("base64");
-      return { imageUrl: `data:${file.headers.get("content-type") ?? "image/jpeg"};base64,${bytes}` };
+      return {
+        imageUrl: `data:${file.headers.get("content-type") ?? "image/jpeg"};base64,${bytes}`,
+      };
     }
     if (!key) throw new Error("sin-clave");
     const response = await fetch(
@@ -81,8 +102,12 @@ export const aiLook = createServerFn({ method: "POST" })
       const body = (await response.text().catch(() => "")).replace(/\s+/g, " ").slice(0, 220);
       throw new Error(`ia-${response.status}: ${body}`);
     }
-    const payload = (await response.json()) as { candidates?: { content?: { parts?: GeminiPart[] } }[] };
+    const payload = (await response.json()) as {
+      candidates?: { content?: { parts?: GeminiPart[] } }[];
+    };
     const part = payload.candidates?.[0]?.content?.parts?.find((p) => p.inlineData?.data);
     if (!part?.inlineData?.data) throw new Error("ia-vacia");
-    return { imageUrl: `data:${part.inlineData.mimeType ?? "image/png"};base64,${part.inlineData.data}` };
+    return {
+      imageUrl: `data:${part.inlineData.mimeType ?? "image/png"};base64,${part.inlineData.data}`,
+    };
   });

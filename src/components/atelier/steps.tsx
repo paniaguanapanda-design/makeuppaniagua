@@ -22,6 +22,7 @@ export function StepsScreen({
   skinFromPhoto,
   kit,
   summary,
+  photo,
 }: {
   situation: SituationId;
   card: ReferenceCard;
@@ -34,6 +35,8 @@ export function StepsScreen({
   skinFromPhoto: boolean;
   kit: PersonBrief["kit"] | null;
   summary: string;
+  /** Su foto en JPEG si la hizo con la cámara, para adjuntarla a la reseña. */
+  photo?: string;
 }) {
   const occasion = situationById(situation);
   const option = optionById(situation, card.id as OptionId);
@@ -131,7 +134,7 @@ export function StepsScreen({
             El catálogo no vende ni reserva estilistas. El orden es para repetir la referencia en la
             piel.
           </p>
-          <FeedbackForm situation={situation} />
+          <FeedbackForm situation={situation} look={card.title} photo={photo} />
         </div>
       </div>
     </div>

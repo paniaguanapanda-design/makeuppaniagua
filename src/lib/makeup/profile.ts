@@ -5,11 +5,28 @@ export const AGES = [
   { id: "joven", label: "18 a 25", line: "Rubor, ceja y un labio que puede ser mate o con color." },
   { id: "treinta", label: "26 a 35", line: "Mirada abierta, tonos tierra y un labio con luz." },
   { id: "cuarenta", label: "36 a 45", line: "Satinado, coral o rojo, pestaña y ceja." },
-  { id: "madura", label: "46 a 59", line: "Crema antes que polvo. Menos brillo donde hay textura." },
+  {
+    id: "madura",
+    label: "46 a 59",
+    line: "Crema antes que polvo. Menos brillo donde hay textura.",
+  },
   { id: "silver", label: "60 o más", line: "Piel luminosa, pestaña y un labio que devuelva vida." },
 ] as const;
 
 export type AgeId = (typeof AGES)[number]["id"];
+
+/** Edades que se ofrecen en el desplegable. */
+export const AGE_YEARS = Array.from({ length: 90 - 14 + 1 }, (_, index) => 14 + index);
+
+/** Edad exacta → franja interna que usa el maquillador. Nunca se muestra. */
+export function ageFromYears(years: number): AgeId {
+  if (years < 18) return "menor";
+  if (years <= 25) return "joven";
+  if (years <= 35) return "treinta";
+  if (years <= 45) return "cuarenta";
+  if (years <= 59) return "madura";
+  return "silver";
+}
 
 export const TASTES = [
   { id: "natural", label: "Natural" },
@@ -28,6 +45,7 @@ export type KitField = "base" | "ojos" | "labios" | "resto";
 
 export type PersonBrief = {
   age: AgeId;
+  years?: number;
   tastes: TasteId[];
   note: string;
   skin: string;
@@ -65,10 +83,11 @@ export function ageById(id: AgeId) {
   return AGES.find((item) => item.id === id) ?? AGES[1];
 }
 
+/** Resumen visible de sus gustos. La edad no se muestra nunca. */
 export function personLine(person: PersonBrief) {
-  const age = ageById(person.age);
-  const tastes = TASTES.filter((item) => person.tastes.includes(item.id)).map((item) => item.label);
-  return [age.label, tastes.join(", ")].filter(Boolean).join(" · ");
+  return TASTES.filter((item) => person.tastes.includes(item.id))
+    .map((item) => item.label)
+    .join(", ");
 }
 
 export function composeNote(kit: Record<KitField, string>) {
@@ -102,7 +121,9 @@ export function skinPrompt(skin: string, fromPhoto = false) {
       : `She described her skin in her own words: "${skin.slice(0, 300)}". Respect that.`,
   ];
   if (/acne|acné|grano|barrito|espinilla/.test(text)) {
-    lines.push("Acne-prone skin: a very light base, no heavy layers and no thick cream on the cheeks.");
+    lines.push(
+      "Acne-prone skin: a very light base, no heavy layers and no thick cream on the cheeks.",
+    );
   }
   if (/seca|tirante|escama|deshidr/.test(text)) {
     lines.push("Dry skin: cream textures. No flat matte powder that clings to dry patches.");
@@ -126,6 +147,7 @@ export function personPrompt(person: PersonBrief) {
   const tastes = person.tastes.map((id) => TASTE_FIT[id]);
   const note = person.note.trim();
   return [
+    person.years ? `She is ${person.years} years old.` : "",
     AGE_FIT[person.age],
     ...tastes,
     skinPrompt(person.skin, person.skinFromPhoto),
@@ -151,13 +173,18 @@ const NOTE_ZONES: [ZoneId, string[]][] = [
 export function noteZones(note: string): ZoneId[] {
   const text = note.toLowerCase();
   if (!text.trim()) return [];
-  return NOTE_ZONES.filter(([, words]) => words.some((word) => text.includes(word))).map(([zone]) => zone);
+  return NOTE_ZONES.filter(([, words]) => words.some((word) => text.includes(word))).map(
+    ([zone]) => zone,
+  );
 }
 
 export function noteMatchesProduct(note: string, brandName: string, productName: string) {
   const text = note.toLowerCase();
   if (!text.trim()) return false;
-  const brand = brandName.toLowerCase().normalize("NFD").replace(/\p{Diacritic}/gu, "");
+  const brand = brandName
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "");
   const plain = text.normalize("NFD").replace(/\p{Diacritic}/gu, "");
   const token = brand.split(" ")[0] ?? "";
   if (token.length > 2 && plain.includes(token)) return true;

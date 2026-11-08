@@ -10,12 +10,18 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ResenasRouteImport } from './routes/resenas'
 import { Route as RestablecerRouteImport } from './routes/restablecer'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ResenasRoute = ResenasRouteImport.update({
+  id: '/resenas',
+  path: '/resenas',
   getParentRoute: () => rootRouteImport,
 } as any)
 const RestablecerRoute = RestablecerRouteImport.update({
@@ -31,30 +37,34 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/resenas': typeof ResenasRoute
   '/restablecer': typeof RestablecerRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/resenas': typeof ResenasRoute
   '/restablecer': typeof RestablecerRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/resenas': typeof ResenasRoute
   '/restablecer': typeof RestablecerRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/restablecer' | '/api/auth/$'
+  fullPaths: '/' | '/resenas' | '/restablecer' | '/api/auth/$'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/restablecer' | '/api/auth/$'
-  id: '__root__' | '/' | '/restablecer' | '/api/auth/$'
+  to: '/' | '/resenas' | '/restablecer' | '/api/auth/$'
+  id: '__root__' | '/' | '/resenas' | '/restablecer' | '/api/auth/$'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ResenasRoute: typeof ResenasRoute
   RestablecerRoute: typeof RestablecerRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
 }
@@ -66,6 +76,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/resenas': {
+      id: '/resenas'
+      path: '/resenas'
+      fullPath: '/resenas'
+      preLoaderRoute: typeof ResenasRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/restablecer': {
@@ -87,6 +104,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ResenasRoute: ResenasRoute,
   RestablecerRoute: RestablecerRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
 }

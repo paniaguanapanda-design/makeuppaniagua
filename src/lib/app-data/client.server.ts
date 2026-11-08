@@ -278,7 +278,9 @@ function tokenIdentityKey(token: string): string {
             .digest("base64url");
         }
       }
-    } catch {}
+    } catch {
+      // Token sin formato JWT: se usa el hash del token completo (abajo).
+    }
   }
   return createHash("sha256").update(token).digest("base64url");
 }

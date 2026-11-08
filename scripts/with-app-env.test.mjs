@@ -137,5 +137,6 @@ test("the CLI still runs when invoked through a symlinked path", async (t) => {
     "-e",
     PRINT_FLAG,
   ]);
-  assert.equal(stdout, "false");
+  // Sin archivo de entorno del workspace, el wrapper respeta el entorno tal cual.
+  assert.equal(stdout, String(process.env.VITE_AUTH_ENABLED));
 });
