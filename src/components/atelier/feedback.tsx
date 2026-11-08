@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { CONSENT_DATA, CONSENT_PUBLISH, sendFeedback } from "@/lib/makeup/feedback";
+import { sendFeedback } from "@/lib/makeup/feedback";
+import { DICTS, useLang } from "@/lib/i18n";
 
 function Star({ filled }: { filled: boolean }) {
   return (
@@ -15,14 +16,7 @@ function Star({ filled }: { filled: boolean }) {
   );
 }
 
-const TAGS = [
-  "Me encantó el look",
-  "Fácil de seguir",
-  "Me reconocí en la foto",
-  "Tardó mucho",
-  "No me reconocí",
-  "Quiero más opciones",
-];
+const TAGS = ["loved", "easy", "me", "slow", "notme", "more"] as const;
 
 /** Reseña al final del flujo: estrellas, texto, foto opcional y consentimiento. */
 export function FeedbackForm({
@@ -35,6 +29,7 @@ export function FeedbackForm({
   /** Su foto en JPEG, solo si la hizo con la cámara. */
   photo?: string;
 }) {
+  const { t, lang } = useLang();
   const [rating, setRating] = useState(0);
   const [tags, setTags] = useState<string[]>([]);
   const [comment, setComment] = useState("");
@@ -47,17 +42,14 @@ export function FeedbackForm({
   const [emailStatus, setEmailStatus] = useState<"sent" | "not-configured" | "failed">("sent");
 
   if (state === "done") {
+    const first = name.trim().split(" ")[0];
     return (
       <section className="mt-12 text-center" aria-live="polite">
         <h2 className="font-display text-3xl">
-          Gracias{name.trim() ? `, ${name.trim().split(" ")[0]}` : ""} <em>por tu reseña</em>
+          {t("fb.thanks", { name: first ? `, ${first}` : "" })} <em>{t("fb.thanks2")}</em>
         </h2>
         <div className="hair" />
-        <p className="text-muted">
-          {emailStatus === "sent"
-            ? "Nos ayuda a hacer NEUSTA mejor para ti."
-            : "Tu reseña se guardó correctamente."}
-        </p>
+        <p className="text-muted">{emailStatus === "sent" ? t("fb.sent") : t("fb.saved")}</p>
       </section>
     );
   }
@@ -68,9 +60,15 @@ export function FeedbackForm({
     setTouched(true);
     if (!ready || state === "sending") return;
     setState("sending");
-    const text = [tags.length ? `[${tags.join(" · ")}]` : "", comment.trim()]
+    // Al equipo le llega en español, con el idioma de la usuaria anotado.
+    const labels = tags.map((tag) => DICTS.es[`fb.tag.${tag}`]);
+    const prefix = [
+      lang !== "es" ? `(${lang.toUpperCase()})` : "",
+      labels.length ? `[${labels.join(" · ")}]` : "",
+    ]
       .filter(Boolean)
       .join(" ");
+    const text = [prefix, comment.trim()].filter(Boolean).join(" ");
     try {
       const result = await sendFeedback({
         data: {
@@ -94,19 +92,19 @@ export function FeedbackForm({
   return (
     <section className="mt-12 text-center">
       <h2 className="font-display text-3xl">
-        ¿Cómo te fue <em>con tu look?</em>
+        {t("fb.title1")} <em>{t("fb.title2")}</em>
       </h2>
       <div className="hair" />
-      <p className="text-muted">Déjanos tu reseña. Nos ayuda a mejorar.</p>
+      <p className="text-muted">{t("fb.sub")}</p>
       <div className="glass mt-5 rounded-3xl p-5 text-left">
-        <div className="flex justify-center gap-2" role="radiogroup" aria-label="Puntuación">
+        <div className="flex justify-center gap-2" role="radiogroup" aria-label={t("fb.rating")}>
           {[1, 2, 3, 4, 5].map((n) => (
             <button
               key={n}
               type="button"
               role="radio"
               aria-checked={rating === n}
-              aria-label={`${n} de 5`}
+              aria-label={t("fb.stars", { n })}
               className="min-h-11 min-w-11"
               onClick={() => setRating(n)}
             >
@@ -115,10 +113,10 @@ export function FeedbackForm({
           ))}
         </div>
         {touched && rating < 1 ? (
-          <p className="mt-1 text-center text-xs text-blush">Elige de 1 a 5 estrellas.</p>
+          <p className="mt-1 text-center text-xs text-blush">{t("fb.pickStars")}</p>
         ) : null}
 
-        <p className="mt-5 text-sm font-medium text-ink">¿Qué destacarías?</p>
+        <p className="mt-5 text-sm font-medium text-ink">{t("fb.highlight")}</p>
         <div className="mt-2 flex flex-wrap gap-2">
           {TAGS.map((tag) => {
             const on = tags.includes(tag);
@@ -128,32 +126,32 @@ export function FeedbackForm({
                 type="button"
                 aria-pressed={on}
                 onClick={() =>
-                  setTags((list) => (on ? list.filter((t) => t !== tag) : [...list, tag]))
+                  setTags((list) => (on ? list.filter((x) => x !== tag) : [...list, tag]))
                 }
                 className={`min-h-10 rounded-full border px-3.5 text-sm transition-colors ${
                   on ? "border-blush bg-blush text-white" : "border-line bg-white/70 text-ink"
                 }`}
               >
-                {tag}
+                {t(`fb.tag.${tag}`)}
               </button>
             );
           })}
         </div>
 
         <label className="mt-5 block text-sm font-medium text-ink" htmlFor="neusta-opinion">
-          Tu reseña
+          {t("fb.review")}
         </label>
         <textarea
           id="neusta-opinion"
           value={comment}
           maxLength={900}
           onChange={(event) => setComment(event.target.value)}
-          placeholder="Qué te gustó, cómo te viste, qué cambiarías…"
+          placeholder={t("fb.review.ph")}
           className="mt-2 h-28 w-full rounded-2xl border border-line bg-white p-3 text-base text-ink"
         />
 
         <label className="mt-4 block text-sm font-medium text-ink" htmlFor="neusta-nombre">
-          Tu nombre <span className="font-normal text-muted">(opcional)</span>
+          {t("fb.name")} <span className="font-normal text-muted">{t("fb.optional")}</span>
         </label>
         <input
           id="neusta-nombre"
@@ -162,18 +160,14 @@ export function FeedbackForm({
           value={name}
           maxLength={60}
           onChange={(event) => setName(event.target.value)}
-          placeholder="Cómo quieres que aparezca"
+          placeholder={t("fb.name.ph")}
           className="mt-2 min-h-12 w-full rounded-2xl border border-line bg-white px-3 text-base text-ink"
         />
 
         {photo ? (
           <label className="mt-4 flex items-center gap-3 rounded-2xl bg-white/70 p-3 text-sm">
-            <img
-              src={photo}
-              alt="Tu foto para la reseña"
-              className="size-14 rounded-xl object-cover"
-            />
-            <span className="flex-1">Enviar mi foto con la reseña</span>
+            <img src={photo} alt={t("fb.photoAlt")} className="size-14 rounded-xl object-cover" />
+            <span className="flex-1">{t("fb.photo")}</span>
             <input
               type="checkbox"
               checked={sharePhoto}
@@ -192,7 +186,7 @@ export function FeedbackForm({
               className="mt-0.5 size-5 shrink-0 accent-[#a8475f]"
             />
             <span>
-              {CONSENT_DATA} <span className="text-blush">*</span>
+              {t("fb.consentData")} <span className="text-blush">*</span>
             </span>
           </label>
           <label className="flex items-start gap-3">
@@ -202,15 +196,14 @@ export function FeedbackForm({
               onChange={(event) => setConsentPublish(event.target.checked)}
               className="mt-0.5 size-5 shrink-0 accent-[#a8475f]"
             />
-            <span>{CONSENT_PUBLISH} (opcional)</span>
+            <span>
+              {t("fb.consentPublish")} {t("fb.optional")}
+            </span>
           </label>
           {touched && !consentData ? (
-            <p className="text-xs text-blush">Necesitamos tu permiso para guardar la reseña.</p>
+            <p className="text-xs text-blush">{t("fb.consentNeeded")}</p>
           ) : null}
-          <p className="text-xs leading-relaxed text-muted">
-            Usamos el correo de tu cuenta. Tus datos solo se usan para lo que marques y puedes pedir
-            que los borremos cuando quieras.
-          </p>
+          <p className="text-xs leading-relaxed text-muted">{t("fb.privacy")}</p>
         </div>
 
         <button
@@ -219,11 +212,11 @@ export function FeedbackForm({
           onClick={submit}
           className={`bg-ink mt-5 min-h-12 w-full rounded-full px-6 font-semibold text-white ${ready ? "" : "opacity-60"}`}
         >
-          {state === "sending" ? "Enviando…" : "Enviar reseña"}
+          {state === "sending" ? t("fb.sending") : t("fb.send")}
         </button>
         {state === "error" ? (
           <p className="mt-3 text-center text-sm text-muted" role="alert">
-            No pude enviarla. Inténtalo de nuevo en un momento.
+            {t("fb.error")}
           </p>
         ) : null}
       </div>

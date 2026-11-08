@@ -41,6 +41,7 @@ const recommendSchema = z.object({
     .max(8),
   note: z.string().max(800),
   skin: z.string().max(300),
+  lang: z.enum(["es", "en", "it"]).optional(),
 });
 
 type ProductRow = {
@@ -223,8 +224,9 @@ const REMAP_BRAND: Partial<Record<ZoneId, "look" | string>> = {
   iluminador: "essence",
 };
 
-export const getDirectory = createServerFn({ method: "GET" }).middleware([authMiddleware]).handler(
-  async (): Promise<Directory> => {
+export const getDirectory = createServerFn({ method: "GET" })
+  .middleware([authMiddleware])
+  .handler(async (): Promise<Directory> => {
     const sql = await getSql();
     const brands = await sql<{
       id: string;
@@ -292,8 +294,73 @@ export const getDirectory = createServerFn({ method: "GET" }).middleware([authMi
       },
       products: productRows.map(mapProduct),
     };
-  },
-);
+  });
+
+const translationCache = new Map<string, string>();
+const LANGUAGE_NAME = { en: "English", it: "Italian" } as const;
+
+/**
+ * Traduce textos del catálogo con xAI. Guarda en memoria lo ya traducido y,
+ * si algo falla, devuelve el texto original para no romper la pantalla.
+ */
+async function translateTexts(texts: string[], lang: "en" | "it"): Promise<string[]> {
+  const key = process.env.XAI_API_KEY;
+  const missing = [
+    ...new Set(texts.filter((text) => text && !translationCache.has(`${lang}:${text}`))),
+  ];
+  if (key && missing.length) {
+    try {
+      const response = await fetch("https://api.x.ai/v1/responses", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
+        signal: AbortSignal.timeout(20_000),
+        body: JSON.stringify({
+          model: "grok-4.3",
+          store: false,
+          reasoning: { effort: "none" },
+          input: [
+            {
+              role: "user",
+              content: [
+                {
+                  type: "input_text",
+                  text:
+                    `Translate each Spanish makeup instruction in this JSON array into natural ${LANGUAGE_NAME[lang]}, ` +
+                    "keeping the tone of a professional makeup artist and keeping product names unchanged. " +
+                    "Reply ONLY with a JSON array of strings, same length and order.\n" +
+                    JSON.stringify(missing),
+                },
+              ],
+            },
+          ],
+        }),
+      });
+      if (response.ok) {
+        const { textFromResponse } = await import("./analysis");
+        const raw = textFromResponse(await response.json());
+        const match = raw.match(/\[[\s\S]*\]/);
+        const list = match ? (JSON.parse(match[0]) as unknown[]) : [];
+        if (list.length === missing.length) {
+          missing.forEach((text, index) => {
+            const value = list[index];
+            if (typeof value === "string" && value.trim())
+              translationCache.set(`${lang}:${text}`, value.trim());
+          });
+        } else {
+          console.error(`[recommend] traducción incompleta (${list.length}/${missing.length})`);
+        }
+      } else {
+        console.error("[recommend] traducción falló", response.status);
+      }
+    } catch (error) {
+      console.error(
+        "[recommend] traducción falló",
+        error instanceof Error ? error.message : String(error),
+      );
+    }
+  }
+  return texts.map((text) => translationCache.get(`${lang}:${text}`) ?? text);
+}
 
 export const recommendLook = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
@@ -383,6 +450,18 @@ export const recommendLook = createServerFn({ method: "POST" })
       alternates[zone] = unique.slice(0, 6);
     }
 
+    // El catálogo está en español: si la usuaria eligió otro idioma, se traducen los textos visibles.
+    let stylistSignature = look.signature;
+    if (data.lang && data.lang !== "es") {
+      const texts = [look.signature, ...steps.flatMap((step) => [step.title, step.instruction])];
+      const translated = await translateTexts(texts, data.lang);
+      stylistSignature = translated[0];
+      steps.forEach((step, index) => {
+        step.title = translated[1 + index * 2];
+        step.instruction = translated[2 + index * 2];
+      });
+    }
+
     return {
       id: look.id,
       situation: look.situation,
@@ -394,7 +473,7 @@ export const recommendLook = createServerFn({ method: "POST" })
         name: look.stylist_name,
         city: look.city,
         focus: look.focus,
-        signature: look.signature,
+        signature: stylistSignature,
         years: Number(look.years),
       },
       intensities: tuneIntensities(parseIntensities(look.intensities), shape, depth),

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useLang } from "@/lib/i18n";
 
 type InstallEvent = Event & {
   prompt: () => Promise<void>;
@@ -33,6 +34,7 @@ export function InstallPrompt() {
   const [event, setEvent] = useState<InstallEvent | null>(null);
   const [help, setHelp] = useState(false);
   const [isIOS, setIsIOS] = useState(false);
+  const { t } = useLang();
 
   useEffect(() => {
     if (isInstalled() || dismissedRecently()) return;
@@ -88,8 +90,8 @@ export function InstallPrompt() {
       <div className="flex items-center gap-3">
         <img src="/icon-192.png" alt="" width={40} height={40} className="rounded-xl" />
         <div className="min-w-0 flex-1 text-left">
-          <p className="text-sm font-semibold text-ink">Lleva NEUSTA contigo</p>
-          <p className="text-xs text-muted">Instálala en tu pantalla de inicio.</p>
+          <p className="text-sm font-semibold text-ink">{t("install.title")}</p>
+          <p className="text-xs text-muted">{t("install.sub")}</p>
         </div>
         <button
           type="button"
@@ -97,11 +99,11 @@ export function InstallPrompt() {
           style={{ background: "linear-gradient(135deg,#b4546c,#8f3c52)" }}
           onClick={() => void install()}
         >
-          Instalar
+          {t("install.btn")}
         </button>
         <button
           type="button"
-          aria-label="Cerrar"
+          aria-label={t("install.close")}
           className="min-h-11 min-w-11 text-lg text-muted"
           onClick={close}
         >
@@ -110,9 +112,7 @@ export function InstallPrompt() {
       </div>
       {help ? (
         <p className="mt-2 border-t border-line pt-2 text-left text-xs leading-5 text-muted">
-          {isIOS
-            ? "En Safari, toca el botón Compartir (el cuadrado con la flecha) y elige «Añadir a pantalla de inicio»."
-            : "Abre el menú del navegador (los tres puntos) y elige «Instalar app» o «Añadir a pantalla de inicio»."}
+          {isIOS ? t("install.ios") : t("install.other")}
         </p>
       ) : null}
     </div>

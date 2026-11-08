@@ -1,14 +1,16 @@
 import { useEffect, useRef, useState } from "react";
 import { canvasFromImage, loadImage, loadLandmarker, readPortrait } from "@/lib/makeup/scan";
 import type { Capture } from "@/lib/makeup/types";
+import { useLang } from "@/lib/i18n";
 
 const PORTRAITS = [
-  { id: "olivo", src: "/studio/olivo.jpg", label: "Olivo", note: "Piel media" },
-  { id: "ebano", src: "/studio/ebano.jpg", label: "Ébano", note: "Piel profunda" },
-  { id: "lino", src: "/studio/lino.jpg", label: "Lino", note: "Piel clara" },
+  { id: "olivo", src: "/studio/olivo.jpg", label: "Olivo", note: "depth.media" },
+  { id: "ebano", src: "/studio/ebano.jpg", label: "Ébano", note: "depth.profunda" },
+  { id: "lino", src: "/studio/lino.jpg", label: "Lino", note: "depth.clara" },
 ];
 
 export function ScannerScreen({ onCapture }: { onCapture: (capture: Capture) => void }) {
+  const { t } = useLang();
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const [model, setModel] = useState<"loading" | "ready" | "error">("loading");
@@ -59,7 +61,7 @@ export function ScannerScreen({ onCapture }: { onCapture: (capture: Capture) => 
           setLocked(true);
           if (streak.current >= 2) {
             taken.current = true;
-            setBusy("Leyendo el rostro");
+            setBusy("scan.reading");
             streamRef.current?.getTracks().forEach((track) => track.stop());
             onCaptureRef.current({
               photo: frame,
@@ -104,16 +106,12 @@ export function ScannerScreen({ onCapture }: { onCapture: (capture: Capture) => 
       setLive(true);
     } catch {
       setLive(false);
-      setCameraError(
-        lens === "environment"
-          ? "No pude abrir la cámara trasera. Prueba la frontal o un retrato de estudio."
-          : "No pude abrir la cámara frontal. Prueba la trasera o un retrato de estudio.",
-      );
+      setCameraError(lens === "environment" ? "scan.rearError" : "scan.frontError");
     }
   }
 
   async function selectPortrait(src: string) {
-    setBusy("Aplicando el maquillaje");
+    setBusy("scan.applying");
     setCameraError(null);
     try {
       const image = await loadImage(src);
@@ -123,17 +121,15 @@ export function ScannerScreen({ onCapture }: { onCapture: (capture: Capture) => 
       onCapture({ photo, ...result, source: "studio" });
     } catch (error) {
       setBusy(null);
-      setCameraError(error instanceof Error ? error.message : "No pude leer el retrato.");
+      setCameraError(error instanceof Error ? error.message : "scan.portraitError");
     }
   }
 
   return (
     <div className="mx-auto max-w-6xl px-4 pb-16 pt-8 text-center">
-      <p className="step-eyebrow">Paso 3 de 4</p>
-      <h1 className="mt-3 text-4xl">Deja que te vea</h1>
-      <p className="mx-auto mt-4 max-w-xl text-sm text-muted">
-        Mira a la lente, con luz de frente. Al encontrar tu rostro, preparo tres referencias.
-      </p>
+      <p className="step-eyebrow">{t("scan.step")}</p>
+      <h1 className="mt-3 text-4xl">{t("scan.title")}</h1>
+      <p className="mx-auto mt-4 max-w-xl text-sm text-muted">{t("scan.intro")}</p>
       <div className="mt-8 grid items-start gap-8 lg:grid-cols-2">
         <div className="overflow-hidden rounded-2xl border border-line bg-ink">
           <div className="relative frame-portrait bg-ink">
@@ -153,8 +149,8 @@ export function ScannerScreen({ onCapture }: { onCapture: (capture: Capture) => 
               </div>
             ) : (
               <div className="absolute inset-0 flex flex-col items-center justify-center px-6 text-center text-surface">
-                <p className="font-display text-3xl">Cámara apagada</p>
-                <p className="mt-2 max-w-xs text-sm text-clay">El permiso se pide al abrirla.</p>
+                <p className="font-display text-3xl">{t("scan.off")}</p>
+                <p className="mt-2 max-w-xs text-sm text-clay">{t("scan.permission")}</p>
               </div>
             )}
           </div>
@@ -162,20 +158,20 @@ export function ScannerScreen({ onCapture }: { onCapture: (capture: Capture) => 
         <div>
           <p className="text-sm text-muted">
             {model === "loading"
-              ? "Cargando el lector de rostro."
+              ? t("scan.loading")
               : model === "error"
-                ? "No pude arrancar el lector en este navegador."
+                ? t("scan.error")
                 : busy
-                  ? busy
+                  ? t(busy)
                   : locked
-                    ? "Te veo. Preparando las referencias."
+                    ? t("scan.locked")
                     : live
                       ? facing === "environment"
-                        ? "Cámara trasera. Encuadra la cara en el óvalo."
-                        : "Buscando tu cara. Quédate quieta en el óvalo."
-                      : "Elige la cámara frontal o la trasera."}
+                        ? t("scan.rear")
+                        : t("scan.front")
+                      : t("scan.choose")}
           </p>
-          {cameraError ? <p className="mt-3 text-sm text-blush">{cameraError}</p> : null}
+          {cameraError ? <p className="mt-3 text-sm text-blush">{t(cameraError)}</p> : null}
           <div className="mt-6 flex flex-col gap-3">
             {live ? (
               <button
@@ -184,7 +180,7 @@ export function ScannerScreen({ onCapture }: { onCapture: (capture: Capture) => 
                 onClick={() => void openCamera(facing === "environment" ? "user" : "environment")}
                 className="min-h-11 rounded-full border border-line px-6"
               >
-                {facing === "environment" ? "Usar cámara frontal" : "Usar cámara trasera"}
+                {facing === "environment" ? t("scan.useFront") : t("scan.useRear")}
               </button>
             ) : (
               <>
@@ -194,7 +190,7 @@ export function ScannerScreen({ onCapture }: { onCapture: (capture: Capture) => 
                   onClick={() => void openCamera("user")}
                   className="min-h-11 rounded-full bg-ink px-6 text-surface"
                 >
-                  Cámara frontal
+                  {t("scan.frontBtn")}
                 </button>
                 <button
                   type="button"
@@ -202,15 +198,13 @@ export function ScannerScreen({ onCapture }: { onCapture: (capture: Capture) => 
                   onClick={() => void openCamera("environment")}
                   className="min-h-11 rounded-full border border-line px-6"
                 >
-                  Cámara trasera
+                  {t("scan.rearBtn")}
                 </button>
               </>
             )}
           </div>
-          <h2 className="mt-10 text-2xl">Retratos de estudio</h2>
-          <p className="mt-2 text-sm text-muted">
-            Si no quieres usar la cámara, elijo un retrato y lo maquillo igual.
-          </p>
+          <h2 className="mt-10 text-2xl">{t("scan.studio")}</h2>
+          <p className="mt-2 text-sm text-muted">{t("scan.studioIntro")}</p>
           <div className="mt-4 grid grid-cols-3 gap-3">
             {PORTRAITS.map((portrait) => (
               <button
@@ -224,12 +218,12 @@ export function ScannerScreen({ onCapture }: { onCapture: (capture: Capture) => 
                 <img src={portrait.src} alt="" className="frame-portrait w-full object-cover" />
                 <span className="block px-2 py-3 text-sm">
                   <span className="block font-medium">{portrait.label}</span>
-                  <span className="text-muted">{portrait.note}</span>
+                  <span className="text-muted">{t(portrait.note)}</span>
                 </span>
               </button>
             ))}
           </div>
-          {busy ? <p className="mt-4 text-sm text-muted">{busy}</p> : null}
+          {busy ? <p className="mt-4 text-sm text-muted">{t(busy)}</p> : null}
         </div>
       </div>
     </div>

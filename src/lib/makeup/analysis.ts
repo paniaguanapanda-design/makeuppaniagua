@@ -16,6 +16,13 @@ export type FaceAnalysis = {
   advice: string;
 };
 
+/** Las claves y los valores cerrados van en español (la app los traduce); los textos libres, en su idioma. */
+const LANGUAGE_NOTE: Record<"es" | "en" | "it", string> = {
+  es: "",
+  en: ' Escribe "calidad" y "consejo" en inglés. El resto de valores, exactamente como se indican.',
+  it: ' Escribe "calidad" y "consejo" en italiano. El resto de valores, exactamente como se indican.',
+};
+
 const ANALYSIS_ASK = [
   "Eres una maquilladora profesional con 20 años de experiencia. Observa este rostro SOLO para planificar el maquillaje.",
   "No hagas diagnósticos médicos ni uses términos clínicos. Describe solo lo que se ve en la foto, con tacto y en positivo.",
@@ -79,7 +86,7 @@ export function analysisLine(analysis: FaceAnalysis) {
   return parts.length ? parts.join(", ") : "Piel pareja";
 }
 
-function textFromResponse(payload: unknown) {
+export function textFromResponse(payload: unknown) {
   if (!payload || typeof payload !== "object") return "";
   const root = payload as { output_text?: unknown; output?: unknown };
   if (typeof root.output_text === "string") return root.output_text;
@@ -101,7 +108,10 @@ function textFromResponse(payload: unknown) {
   return chunks.join(" ");
 }
 
-async function askGrok(photo: string): Promise<FaceAnalysis | null> {
+async function askGrok(
+  photo: string,
+  lang: "es" | "en" | "it" = "es",
+): Promise<FaceAnalysis | null> {
   const key = process.env.XAI_API_KEY;
   if (!key) return null;
   try {
@@ -121,7 +131,7 @@ async function askGrok(photo: string): Promise<FaceAnalysis | null> {
             role: "user",
             content: [
               { type: "input_image", image_url: photo },
-              { type: "input_text", text: ANALYSIS_ASK },
+              { type: "input_text", text: ANALYSIS_ASK + LANGUAGE_NOTE[lang] },
             ],
           },
         ],
@@ -140,5 +150,10 @@ async function askGrok(photo: string): Promise<FaceAnalysis | null> {
 
 export const analyzeFace = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
-  .validator(z.object({ photo: z.string().startsWith("data:image/").max(1_600_000) }))
-  .handler(async ({ data }): Promise<FaceAnalysis | null> => askGrok(data.photo));
+  .validator(
+    z.object({
+      photo: z.string().startsWith("data:image/").max(1_600_000),
+      lang: z.enum(["es", "en", "it"]).optional(),
+    }),
+  )
+  .handler(async ({ data }): Promise<FaceAnalysis | null> => askGrok(data.photo, data.lang));

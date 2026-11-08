@@ -1,0 +1,982 @@
+/* eslint-disable react-refresh/only-export-components -- diccionario y proveedor van juntos a propósito */
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
+
+/** Idiomas de NEUSTA. Lo que llega al equipo (correos, /resenas) queda en español. */
+export const LANGS = ["es", "en", "it"] as const;
+export type Lang = (typeof LANGS)[number];
+
+const STORAGE_KEY = "neusta-lang";
+
+type Dict = Record<string, string>;
+
+const es: Dict = {
+  "lang.name": "Español",
+  "common.back": "Volver",
+  "common.stylists": "Estilistas",
+  "common.signOut": "Cerrar sesión",
+  "common.signOutError": "No se pudo cerrar sesión. Inténtalo de nuevo.",
+  "common.retry": "Reintentar",
+  "common.language": "Idioma",
+  "common.years": "{n} años",
+
+  "home.title1": "Tu look,",
+  "home.title2": "a tu medida",
+  "home.start": "Empezar",
+  "home.alt": "Retrato de estudio, una de las referencias de NEUSTA",
+
+  "occ.title1": "¿Para qué",
+  "occ.title2": "ocasión",
+  "occ.sub": "Elige una.",
+
+  "sit.dia": "Día a día",
+  "sit.dia.line": "Piel descansada y color mínimo.",
+  "sit.oficina": "Oficina",
+  "sit.oficina.line": "Nítida en reunión, sin cara de set.",
+  "sit.entrevista": "Entrevista",
+  "sit.entrevista.line": "Cejas y labio. El resto, en calma.",
+  "sit.cita": "Cita",
+  "sit.cita.line": "Calor en el pómulo, labio cercano.",
+  "sit.boda": "Boda",
+  "sit.boda.line": "Luz que aguanta fotos y horas.",
+  "sit.fiesta": "Fiesta",
+  "sit.fiesta.line": "Ojo profundo y labio que se ve de lejos.",
+  "sit.fotos": "Sesión de fotos",
+  "sit.fotos.line": "Piel uniforme bajo flash y ventana.",
+  "sit.editorial": "Editorial",
+  "sit.editorial.line": "Contraste de estudio, un punto gráfico.",
+
+  "kit.step": "Paso 2 de 4",
+  "kit.title": "Cuéntame cómo te maquillas",
+  "kit.intro":
+    "No hay una lista de marcas. Escribe lo que usas, con tus palabras, y cómo está tu piel. Si una casilla no aplica, déjala en blanco.",
+  "kit.age": "Tu edad",
+  "kit.ageNote": "Solo la usa tu maquilladora. No se muestra a nadie.",
+  "kit.agePick": "Elige tu edad",
+  "kit.tastes": "Qué te gusta",
+  "taste.natural": "Natural",
+  "taste.poco": "Pocos productos",
+  "taste.color": "Color",
+  "taste.luminosa": "Piel luminosa",
+  "taste.mate": "Mate",
+  "taste.ceja": "Ceja marcada",
+  "taste.labio": "El labio manda",
+  "taste.ojo": "La mirada manda",
+  "kit.base": "Piel y base",
+  "kit.base.ph": "Nada, una BB, o la base que tengas. Marca, tono, si es ligera o cubre.",
+  "kit.ojos": "Ojos",
+  "kit.ojos.ph": "Rímel, lápiz, sombra. Como tú lo llamas.",
+  "kit.labios": "Labios",
+  "kit.labios.ph": "Bálsamo, labial, brillo, el color que usas.",
+  "kit.resto": "Cejas, rubor y lo demás",
+  "kit.resto.ph": "Lo que tengas, aunque sea uno solo.",
+  "kit.skin": "Cómo está tu piel",
+  "kit.skin.ph":
+    "Granos, seca, grasa, sensible, manchas, rojeces, ojeras. Si lo dejas en blanco, lo miro en la foto.",
+  "kit.continue": "Seguir",
+
+  "scan.step": "Paso 3 de 4",
+  "scan.title": "Deja que te vea",
+  "scan.intro":
+    "Mira a la cámara con luz de frente. Analizo tu rostro y tu piel como lo haría una maquilladora y te propongo tres looks.",
+  "scan.off": "Cámara apagada",
+  "scan.permission": "El permiso se pide al abrirla.",
+  "scan.loading": "Cargando el lector de rostro.",
+  "scan.error": "No pude arrancar el lector en este navegador.",
+  "scan.locked": "Te veo. Preparando las referencias.",
+  "scan.rear": "Cámara trasera. Encuadra la cara en el óvalo.",
+  "scan.front": "Buscando tu cara. Quédate quieta en el óvalo.",
+  "scan.choose": "Elige la cámara frontal o la trasera.",
+  "scan.useFront": "Usar cámara frontal",
+  "scan.useRear": "Usar cámara trasera",
+  "scan.frontBtn": "Cámara frontal",
+  "scan.rearBtn": "Cámara trasera",
+  "scan.studio": "Retratos de estudio",
+  "scan.studioIntro": "Si no quieres usar la cámara, elijo un retrato y lo maquillo igual.",
+  "scan.reading": "Leyendo el rostro",
+  "scan.applying": "Aplicando el maquillaje",
+  "scan.portraitError": "No pude leer el retrato.",
+  "scan.rearError": "No pude abrir la cámara trasera. Prueba la frontal o un retrato de estudio.",
+  "scan.frontError": "No pude abrir la cámara frontal. Prueba la trasera o un retrato de estudio.",
+  "depth.clara": "Piel clara",
+  "depth.media": "Piel media",
+  "depth.profunda": "Piel profunda",
+
+  "opt.step": "Paso 4 de 4",
+  "opt.title1": "Tres looks",
+  "opt.title2": "para ti",
+  "opt.sub": "{occasion} · Natural, medio o glamuroso. Elige tu favorito.",
+  "opt.analysis": "Lo que veo como maquilladora",
+  "opt.face": "Rostro",
+  "opt.skin": "Piel",
+  "opt.circles": "Ojeras",
+  "opt.tone": "Tono {tone} · {depth}",
+  "opt.disclaimer": "Orientación de maquillaje, no un diagnóstico.",
+  "opt.analyzing": "Estoy mirando tu rostro y tu piel como lo haría una maquilladora…",
+  "opt.unreadable": "No pude leer este rostro, así que no armo una referencia genérica.",
+  "opt.load1": "Miro la piel en la foto y ajusto el maquillaje.",
+  "opt.load1b": "Ajustando el maquillaje a esta cara.",
+  "opt.load2": "Preparando otra opción.",
+  "opt.privacy":
+    "Tu foto solo se usa para crear tus looks. No se guarda salvo que la compartas en tu reseña.",
+  "opt.limit":
+    "Hoy ya has creado todas tus imágenes con IA, así que te enseño los looks dibujados sobre tu foto. Los pasos siguen siendo para ti. Mañana podrás volver a ver las imágenes con IA.",
+  "opt.skinLine": "Tu piel: {skin}",
+  "opt.skinPhoto": "En la foto: {skin}. No es un diagnóstico.",
+
+  "shape.ovalado": "Ovalado",
+  "shape.redondo": "Redondo",
+  "shape.cuadrado": "Cuadrado",
+  "shape.corazon": "Corazón",
+  "shape.alargado": "Alargado",
+  "shapeNote.ovalado": "El óvalo admite el color un poco más arriba, hacia la sien.",
+  "shapeNote.redondo": "El rubor va en diagonal hacia la oreja, no en círculo sobre la manzana.",
+  "shapeNote.cuadrado": "Suaviza el ángulo de la mandíbula y sube la luz al pómulo.",
+  "shapeNote.corazon": "Poco producto en la sien. Un punto de color más bajo equilibra la frente.",
+  "shapeNote.alargado": "Lleva el rubor en horizontal. Subirlo alarga todavía más la cara.",
+  "tone.calido": "Cálido",
+  "tone.frio": "Frío",
+  "tone.neutro": "Neutro",
+  "toneDepth.clara": "Clara",
+  "toneDepth.media": "Media",
+  "toneDepth.profunda": "Profunda",
+  "skinType.seca": "Seca",
+  "skinType.grasa": "Grasa",
+  "skinType.mixta": "Mixta",
+  "skinType.normal": "Normal",
+  "circles.no": "No",
+  "circles.leves": "Leves",
+  "circles.marcadas": "Marcadas",
+  "concern.granos": "Granos",
+  "concern.rojeces": "Rojeces",
+  "concern.manchas": "Manchas",
+  "concern.brillo": "Brillo",
+  "concern.poros": "Poros",
+  "concern.sequedad": "Sequedad",
+  "concern.líneas de expresión": "Líneas de expresión",
+
+  "level.natural": "Natural",
+  "level.medio": "Medio",
+  "level.glam": "Glamuroso",
+  "line.dia.natural": "Piel fresca, como recién descansada.",
+  "line.dia.medio": "Se nota arreglada, sin pesar.",
+  "line.dia.glam": "El día con todo, todavía luminoso.",
+  "line.oficina.natural": "Pulida y en calma.",
+  "line.oficina.medio": "Nítida para reuniones.",
+  "line.oficina.glam": "Presencia de directiva.",
+  "line.entrevista.natural": "Descansada y segura.",
+  "line.entrevista.medio": "Se lee bien en primer plano.",
+  "line.entrevista.glam": "Impacto, sin perder seriedad.",
+  "line.cita.natural": "Como tú, en tu mejor día.",
+  "line.cita.medio": "Pómulo cálido y labio cercano.",
+  "line.cita.glam": "Mirada y labio para la noche.",
+  "line.boda.natural": "Luz limpia que aguanta horas.",
+  "line.boda.medio": "Invitada perfecta en las fotos.",
+  "line.boda.glam": "Look de gala que dura toda la fiesta.",
+  "line.fiesta.natural": "Salir sin pensarlo mucho.",
+  "line.fiesta.medio": "Ojo marcado y piel luminosa.",
+  "line.fiesta.glam": "Todo el brillo de la noche.",
+  "line.fotos.natural": "La cámara ve tu piel.",
+  "line.fotos.medio": "Estructura suave para el retrato.",
+  "line.fotos.glam": "Look de portada.",
+  "line.editorial.natural": "La cara manda.",
+  "line.editorial.medio": "Color medido, un punto gráfico.",
+  "line.editorial.glam": "Contraste de estudio.",
+
+  "steps.eyebrow": "Tu look",
+  "steps.using": "Lo que usas: {note}",
+  "steps.skinPhoto": "En la foto, no es un diagnóstico",
+  "steps.skinYours": "Tu piel",
+  "steps.reference": "Referencia de cómo quedaría. No es un filtro puesto encima de la foto.",
+  "steps.retry": "Reintentar los productos",
+  "steps.stylist": "Estilista",
+  "steps.searching": "Buscando los productos de esta opción.",
+  "steps.title": "Pasos y productos",
+  "steps.yours": "Usa lo que ya tienes: {hers}",
+  "steps.missing": "Si te falta, uno de droguería:",
+  "steps.note":
+    "El catálogo no vende ni reserva estilistas. El orden es para repetir la referencia en la piel.",
+  "zone.base": "Base",
+  "zone.cejas": "Cejas",
+  "zone.contorno": "Contorno",
+  "zone.rubor": "Rubor",
+  "zone.iluminador": "Luz",
+  "zone.ojos": "Ojos",
+  "zone.labios": "Labios",
+  "zone.fijador": "Fijador",
+
+  "dir.eyebrow": "Catálogo editorial",
+  "dir.title": "Casas y estilistas",
+  "dir.intro":
+    "Referencia para armar el look. No es una tienda ni una cita real con estas personas: el roster de estilistas es de la casa NEUSTA.",
+  "dir.stylists": "Estilistas",
+  "dir.loading": "Cargando el catálogo…",
+  "tier.lujo": "Lujo",
+  "tier.prestigio": "Prestigio",
+  "tier.accesible": "Accesible",
+
+  "fb.thanks": "Gracias{name}",
+  "fb.thanks2": "por tu reseña",
+  "fb.sent": "Nos ayuda a hacer NEUSTA mejor para ti.",
+  "fb.saved": "Tu reseña se guardó correctamente.",
+  "fb.title1": "¿Cómo te fue",
+  "fb.title2": "con tu look?",
+  "fb.sub": "Déjanos tu reseña. Nos ayuda a mejorar.",
+  "fb.rating": "Puntuación",
+  "fb.stars": "{n} de 5",
+  "fb.pickStars": "Elige de 1 a 5 estrellas.",
+  "fb.highlight": "¿Qué destacarías?",
+  "fb.tag.loved": "Me encantó el look",
+  "fb.tag.easy": "Fácil de seguir",
+  "fb.tag.me": "Me reconocí en la foto",
+  "fb.tag.slow": "Tardó mucho",
+  "fb.tag.notme": "No me reconocí",
+  "fb.tag.more": "Quiero más opciones",
+  "fb.review": "Tu reseña",
+  "fb.review.ph": "Qué te gustó, cómo te viste, qué cambiarías…",
+  "fb.name": "Tu nombre",
+  "fb.optional": "(opcional)",
+  "fb.name.ph": "Cómo quieres que aparezca",
+  "fb.photo": "Enviar mi foto con la reseña",
+  "fb.photoAlt": "Tu foto para la reseña",
+  "fb.consentData":
+    "Acepto que NEUSTA guarde mi correo, mi foto y mi reseña para mejorar el servicio y contactarme sobre ella.",
+  "fb.consentPublish":
+    "Autorizo que NEUSTA publique mi reseña, mi nombre y mi foto en su web y redes.",
+  "fb.consentNeeded": "Necesitamos tu permiso para guardar la reseña.",
+  "fb.privacy":
+    "Usamos el correo de tu cuenta. Tus datos solo se usan para lo que marques y puedes pedir que los borremos cuando quieras.",
+  "fb.send": "Enviar reseña",
+  "fb.sending": "Enviando…",
+  "fb.error": "No pude enviarla. Inténtalo de nuevo en un momento.",
+
+  "acc.login": "Bienvenida",
+  "acc.signup": "Crea tu cuenta",
+  "acc.forgot": "Recupera tu acceso",
+  "acc.reset": "Nueva contraseña",
+  "acc.login.intro": "Ingresa para descubrir tu look a tu medida.",
+  "acc.signup.intro": "Tu espacio personal para descubrir nuevos looks.",
+  "acc.forgot.intro": "Te enviaremos un enlace para restablecer tu contraseña.",
+  "acc.reset.intro": "Elige una contraseña nueva para tu cuenta.",
+  "acc.google": "Continuar con Google",
+  "acc.orEmail": "o con tu correo",
+  "acc.googleError": "No se pudo entrar con Google. Inténtalo de nuevo.",
+  "acc.email": "Correo electrónico",
+  "acc.password": "Contraseña",
+  "acc.showPassword": "Mostrar contraseña",
+  "acc.hidePassword": "Ocultar contraseña",
+  "acc.min": "Mínimo 8 caracteres.",
+  "acc.confirm": "Confirmar contraseña",
+  "acc.forgotLink": "¿Olvidaste tu contraseña?",
+  "acc.wait": "Un momento...",
+  "acc.loginBtn": "Ingresar",
+  "acc.signupBtn": "Crear cuenta",
+  "acc.forgotBtn": "Enviar enlace",
+  "acc.resetBtn": "Guardar contraseña",
+  "acc.noAccount": "¿Aún no tienes cuenta? ",
+  "acc.hasAccount": "¿Ya tienes una cuenta? ",
+  "acc.mismatch": "Las contraseñas no coinciden.",
+  "acc.loginError": "No se pudo ingresar. Revisa tu correo y contraseña.",
+  "acc.signupError": "No se pudo crear la cuenta. Revisa los datos o intenta ingresar.",
+  "acc.forgotError": "No se pudo solicitar la recuperación. Inténtalo más tarde.",
+  "acc.forgotSent":
+    "Si existe una cuenta con ese correo, recibirás un enlace para recuperar tu contraseña.",
+  "acc.resetError": "El enlace no es válido o ha caducado. Solicita uno nuevo.",
+  "acc.resetDone": "Tu contraseña se actualizó. Ya puedes ingresar.",
+  "acc.linkExpired": "El enlace ha caducado o no es válido. Solicita uno nuevo.",
+  "acc.network": "No fue posible conectar con el servicio. Inténtalo nuevamente.",
+  "acc.loading": "Cargando...",
+  "acc.sessionError": "No se pudo comprobar tu sesión. Inténtalo de nuevo más tarde.",
+
+  "install.title": "Lleva NEUSTA contigo",
+  "install.sub": "Instálala en tu pantalla de inicio.",
+  "install.btn": "Instalar",
+  "install.close": "Cerrar",
+  "install.ios":
+    "En Safari, toca el botón Compartir (el cuadrado con la flecha) y elige «Añadir a pantalla de inicio».",
+  "install.other":
+    "Abre el menú del navegador (los tres puntos) y elige «Instalar app» o «Añadir a pantalla de inicio».",
+};
+
+const en: Dict = {
+  "lang.name": "English",
+  "common.back": "Back",
+  "common.stylists": "Stylists",
+  "common.signOut": "Sign out",
+  "common.signOutError": "Couldn't sign out. Please try again.",
+  "common.retry": "Try again",
+  "common.language": "Language",
+  "common.years": "{n} years",
+
+  "home.title1": "Your look,",
+  "home.title2": "made for you",
+  "home.start": "Start",
+  "home.alt": "Studio portrait, one of the NEUSTA references",
+
+  "occ.title1": "What's the",
+  "occ.title2": "occasion",
+  "occ.sub": "Pick one.",
+
+  "sit.dia": "Everyday",
+  "sit.dia.line": "Rested skin, minimal color.",
+  "sit.oficina": "Office",
+  "sit.oficina.line": "Sharp in meetings, never overdone.",
+  "sit.entrevista": "Interview",
+  "sit.entrevista.line": "Brows and lips. The rest, calm.",
+  "sit.cita": "Date",
+  "sit.cita.line": "Warm cheeks, soft lips.",
+  "sit.boda": "Wedding",
+  "sit.boda.line": "Glow that lasts through photos and hours.",
+  "sit.fiesta": "Party",
+  "sit.fiesta.line": "Deep eyes and lips you notice from afar.",
+  "sit.fotos": "Photo shoot",
+  "sit.fotos.line": "Even skin under flash and daylight.",
+  "sit.editorial": "Editorial",
+  "sit.editorial.line": "Studio contrast with a graphic touch.",
+
+  "kit.step": "Step 2 of 4",
+  "kit.title": "Tell me how you do your makeup",
+  "kit.intro":
+    "There's no brand list. Write what you use, in your own words, and how your skin is. If a box doesn't apply, leave it blank.",
+  "kit.age": "Your age",
+  "kit.ageNote": "Only your makeup artist uses it. It's never shown to anyone.",
+  "kit.agePick": "Choose your age",
+  "kit.tastes": "What you like",
+  "taste.natural": "Natural",
+  "taste.poco": "Few products",
+  "taste.color": "Color",
+  "taste.luminosa": "Glowing skin",
+  "taste.mate": "Matte",
+  "taste.ceja": "Defined brows",
+  "taste.labio": "Lips first",
+  "taste.ojo": "Eyes first",
+  "kit.base": "Skin and base",
+  "kit.base.ph": "Nothing, a BB, or the foundation you have. Brand, shade, light or full coverage.",
+  "kit.ojos": "Eyes",
+  "kit.ojos.ph": "Mascara, pencil, shadow. However you call it.",
+  "kit.labios": "Lips",
+  "kit.labios.ph": "Balm, lipstick, gloss, the color you wear.",
+  "kit.resto": "Brows, blush and the rest",
+  "kit.resto.ph": "Whatever you have, even just one.",
+  "kit.skin": "How your skin is",
+  "kit.skin.ph":
+    "Breakouts, dry, oily, sensitive, spots, redness, dark circles. Leave it blank and I'll look at the photo.",
+  "kit.continue": "Continue",
+
+  "scan.step": "Step 3 of 4",
+  "scan.title": "Let me see you",
+  "scan.intro":
+    "Look at the camera with light in front of you. I'll study your face and skin like a makeup artist would and suggest three looks.",
+  "scan.off": "Camera off",
+  "scan.permission": "You'll be asked for permission when it opens.",
+  "scan.loading": "Loading the face reader.",
+  "scan.error": "I couldn't start the face reader in this browser.",
+  "scan.locked": "I see you. Preparing your references.",
+  "scan.rear": "Rear camera. Frame the face in the oval.",
+  "scan.front": "Looking for your face. Stay still in the oval.",
+  "scan.choose": "Choose the front or rear camera.",
+  "scan.useFront": "Use front camera",
+  "scan.useRear": "Use rear camera",
+  "scan.frontBtn": "Front camera",
+  "scan.rearBtn": "Rear camera",
+  "scan.studio": "Studio portraits",
+  "scan.studioIntro":
+    "If you'd rather not use the camera, pick a portrait and I'll make it up the same way.",
+  "scan.reading": "Reading the face",
+  "scan.applying": "Applying the makeup",
+  "scan.portraitError": "I couldn't read the portrait.",
+  "scan.rearError": "I couldn't open the rear camera. Try the front one or a studio portrait.",
+  "scan.frontError": "I couldn't open the front camera. Try the rear one or a studio portrait.",
+  "depth.clara": "Fair skin",
+  "depth.media": "Medium skin",
+  "depth.profunda": "Deep skin",
+
+  "opt.step": "Step 4 of 4",
+  "opt.title1": "Three looks",
+  "opt.title2": "for you",
+  "opt.sub": "{occasion} · Natural, medium or glam. Pick your favorite.",
+  "opt.analysis": "What I see as your makeup artist",
+  "opt.face": "Face",
+  "opt.skin": "Skin",
+  "opt.circles": "Dark circles",
+  "opt.tone": "{tone} undertone · {depth}",
+  "opt.disclaimer": "Makeup guidance, not a diagnosis.",
+  "opt.analyzing": "I'm looking at your face and skin like a makeup artist would…",
+  "opt.unreadable": "I couldn't read this face, so I won't make a generic reference.",
+  "opt.load1": "Looking at the skin in the photo and adjusting the makeup.",
+  "opt.load1b": "Adjusting the makeup to this face.",
+  "opt.load2": "Preparing another option.",
+  "opt.privacy":
+    "Your photo is only used to create your looks. It isn't stored unless you share it in your review.",
+  "opt.limit":
+    "You've used all of today's AI images, so I'm showing the looks drawn on your photo. The steps are still made for you. Tomorrow you'll see the AI images again.",
+  "opt.skinLine": "Your skin: {skin}",
+  "opt.skinPhoto": "In the photo: {skin}. Not a diagnosis.",
+
+  "shape.ovalado": "Oval",
+  "shape.redondo": "Round",
+  "shape.cuadrado": "Square",
+  "shape.corazon": "Heart",
+  "shape.alargado": "Long",
+  "shapeNote.ovalado": "An oval face can take color a little higher, toward the temple.",
+  "shapeNote.redondo": "Blush goes diagonally toward the ear, not in a circle on the apples.",
+  "shapeNote.cuadrado": "Soften the jaw angle and bring light up to the cheekbone.",
+  "shapeNote.corazon":
+    "Little product on the temples. A lower touch of color balances the forehead.",
+  "shapeNote.alargado": "Keep blush horizontal. Placing it higher lengthens the face even more.",
+  "tone.calido": "Warm",
+  "tone.frio": "Cool",
+  "tone.neutro": "Neutral",
+  "toneDepth.clara": "fair",
+  "toneDepth.media": "medium",
+  "toneDepth.profunda": "deep",
+  "skinType.seca": "Dry",
+  "skinType.grasa": "Oily",
+  "skinType.mixta": "Combination",
+  "skinType.normal": "Normal",
+  "circles.no": "None",
+  "circles.leves": "Mild",
+  "circles.marcadas": "Marked",
+  "concern.granos": "Breakouts",
+  "concern.rojeces": "Redness",
+  "concern.manchas": "Spots",
+  "concern.brillo": "Shine",
+  "concern.poros": "Pores",
+  "concern.sequedad": "Dryness",
+  "concern.líneas de expresión": "Expression lines",
+
+  "level.natural": "Natural",
+  "level.medio": "Medium",
+  "level.glam": "Glam",
+  "line.dia.natural": "Fresh skin, like you just rested.",
+  "line.dia.medio": "Polished, never heavy.",
+  "line.dia.glam": "Full day look, still glowing.",
+  "line.oficina.natural": "Polished and calm.",
+  "line.oficina.medio": "Sharp for meetings.",
+  "line.oficina.glam": "Executive presence.",
+  "line.entrevista.natural": "Rested and confident.",
+  "line.entrevista.medio": "Reads well on camera.",
+  "line.entrevista.glam": "Impact, still professional.",
+  "line.cita.natural": "Like you, on your best day.",
+  "line.cita.medio": "Warm cheeks and soft lips.",
+  "line.cita.glam": "Eyes and lips for the night.",
+  "line.boda.natural": "Clean glow that lasts for hours.",
+  "line.boda.medio": "The perfect guest in photos.",
+  "line.boda.glam": "Gala look that lasts all party.",
+  "line.fiesta.natural": "Head out without overthinking.",
+  "line.fiesta.medio": "Defined eyes, glowing skin.",
+  "line.fiesta.glam": "All the sparkle of the night.",
+  "line.fotos.natural": "The camera sees your skin.",
+  "line.fotos.medio": "Soft structure for portraits.",
+  "line.fotos.glam": "Cover-ready look.",
+  "line.editorial.natural": "Your face leads.",
+  "line.editorial.medio": "Measured color, a graphic touch.",
+  "line.editorial.glam": "Studio contrast.",
+
+  "steps.eyebrow": "Your look",
+  "steps.using": "What you use: {note}",
+  "steps.skinPhoto": "In the photo, not a diagnosis",
+  "steps.skinYours": "Your skin",
+  "steps.reference": "A reference of how it would look. It isn't a filter on top of the photo.",
+  "steps.retry": "Retry the products",
+  "steps.stylist": "Stylist",
+  "steps.searching": "Finding the products for this option.",
+  "steps.title": "Steps and products",
+  "steps.yours": "Use what you already have: {hers}",
+  "steps.missing": "If you don't have it, a drugstore option:",
+  "steps.note":
+    "The catalog doesn't sell products or book stylists. The order helps you recreate the reference on your skin.",
+  "zone.base": "Base",
+  "zone.cejas": "Brows",
+  "zone.contorno": "Contour",
+  "zone.rubor": "Blush",
+  "zone.iluminador": "Highlight",
+  "zone.ojos": "Eyes",
+  "zone.labios": "Lips",
+  "zone.fijador": "Setting",
+
+  "dir.eyebrow": "Editorial catalog",
+  "dir.title": "Brands and stylists",
+  "dir.intro":
+    "A reference to build the look. It isn't a shop or a real appointment with these people: the stylist roster belongs to NEUSTA.",
+  "dir.stylists": "Stylists",
+  "dir.loading": "Loading the catalog…",
+  "tier.lujo": "Luxury",
+  "tier.prestigio": "Prestige",
+  "tier.accesible": "Affordable",
+
+  "fb.thanks": "Thank you{name}",
+  "fb.thanks2": "for your review",
+  "fb.sent": "It helps us make NEUSTA better for you.",
+  "fb.saved": "Your review was saved.",
+  "fb.title1": "How did it go",
+  "fb.title2": "with your look?",
+  "fb.sub": "Leave us a review. It helps us improve.",
+  "fb.rating": "Rating",
+  "fb.stars": "{n} of 5",
+  "fb.pickStars": "Choose 1 to 5 stars.",
+  "fb.highlight": "What stood out?",
+  "fb.tag.loved": "Loved the look",
+  "fb.tag.easy": "Easy to follow",
+  "fb.tag.me": "I recognized myself",
+  "fb.tag.slow": "It took too long",
+  "fb.tag.notme": "I didn't recognize myself",
+  "fb.tag.more": "I want more options",
+  "fb.review": "Your review",
+  "fb.review.ph": "What you liked, how you looked, what you'd change…",
+  "fb.name": "Your name",
+  "fb.optional": "(optional)",
+  "fb.name.ph": "How you'd like it to appear",
+  "fb.photo": "Send my photo with the review",
+  "fb.photoAlt": "Your photo for the review",
+  "fb.consentData":
+    "I agree that NEUSTA may store my email, my photo and my review to improve the service and contact me about it.",
+  "fb.consentPublish":
+    "I allow NEUSTA to publish my review, my name and my photo on its website and social media.",
+  "fb.consentNeeded": "We need your permission to save the review.",
+  "fb.privacy":
+    "We use your account email. Your data is only used for what you check, and you can ask us to delete it at any time.",
+  "fb.send": "Send review",
+  "fb.sending": "Sending…",
+  "fb.error": "I couldn't send it. Please try again in a moment.",
+
+  "acc.login": "Welcome",
+  "acc.signup": "Create your account",
+  "acc.forgot": "Recover your access",
+  "acc.reset": "New password",
+  "acc.login.intro": "Sign in to discover the look made for you.",
+  "acc.signup.intro": "Your personal space to discover new looks.",
+  "acc.forgot.intro": "We'll send you a link to reset your password.",
+  "acc.reset.intro": "Choose a new password for your account.",
+  "acc.google": "Continue with Google",
+  "acc.orEmail": "or with your email",
+  "acc.googleError": "Couldn't sign in with Google. Please try again.",
+  "acc.email": "Email",
+  "acc.password": "Password",
+  "acc.showPassword": "Show password",
+  "acc.hidePassword": "Hide password",
+  "acc.min": "At least 8 characters.",
+  "acc.confirm": "Confirm password",
+  "acc.forgotLink": "Forgot your password?",
+  "acc.wait": "One moment...",
+  "acc.loginBtn": "Sign in",
+  "acc.signupBtn": "Create account",
+  "acc.forgotBtn": "Send link",
+  "acc.resetBtn": "Save password",
+  "acc.noAccount": "Don't have an account yet? ",
+  "acc.hasAccount": "Already have an account? ",
+  "acc.mismatch": "The passwords don't match.",
+  "acc.loginError": "Couldn't sign in. Check your email and password.",
+  "acc.signupError": "Couldn't create the account. Check your details or try signing in.",
+  "acc.forgotError": "Couldn't request the reset. Please try later.",
+  "acc.forgotSent":
+    "If an account exists with that email, you'll receive a link to reset your password.",
+  "acc.resetError": "The link is invalid or has expired. Request a new one.",
+  "acc.resetDone": "Your password was updated. You can sign in now.",
+  "acc.linkExpired": "The link has expired or is invalid. Request a new one.",
+  "acc.network": "Couldn't connect to the service. Please try again.",
+  "acc.loading": "Loading...",
+  "acc.sessionError": "Couldn't check your session. Please try again later.",
+
+  "install.title": "Take NEUSTA with you",
+  "install.sub": "Install it on your home screen.",
+  "install.btn": "Install",
+  "install.close": "Close",
+  "install.ios":
+    "In Safari, tap the Share button (the square with the arrow) and choose “Add to Home Screen”.",
+  "install.other":
+    "Open the browser menu (the three dots) and choose “Install app” or “Add to Home screen”.",
+};
+
+const it: Dict = {
+  "lang.name": "Italiano",
+  "common.back": "Indietro",
+  "common.stylists": "Truccatori",
+  "common.signOut": "Esci",
+  "common.signOutError": "Impossibile uscire. Riprova.",
+  "common.retry": "Riprova",
+  "common.language": "Lingua",
+  "common.years": "{n} anni",
+
+  "home.title1": "Il tuo look,",
+  "home.title2": "su misura",
+  "home.start": "Inizia",
+  "home.alt": "Ritratto in studio, uno dei riferimenti di NEUSTA",
+
+  "occ.title1": "Per quale",
+  "occ.title2": "occasione",
+  "occ.sub": "Scegline una.",
+
+  "sit.dia": "Tutti i giorni",
+  "sit.dia.line": "Pelle riposata e colore minimo.",
+  "sit.oficina": "Ufficio",
+  "sit.oficina.line": "Impeccabile in riunione, mai eccessiva.",
+  "sit.entrevista": "Colloquio",
+  "sit.entrevista.line": "Sopracciglia e labbra. Il resto, sobrio.",
+  "sit.cita": "Appuntamento",
+  "sit.cita.line": "Zigomi caldi, labbra naturali.",
+  "sit.boda": "Matrimonio",
+  "sit.boda.line": "Luce che resiste a foto e ore.",
+  "sit.fiesta": "Festa",
+  "sit.fiesta.line": "Occhi intensi e labbra che si notano da lontano.",
+  "sit.fotos": "Servizio fotografico",
+  "sit.fotos.line": "Pelle uniforme sotto flash e luce naturale.",
+  "sit.editorial": "Editoriale",
+  "sit.editorial.line": "Contrasto da studio, un tocco grafico.",
+
+  "kit.step": "Passo 2 di 4",
+  "kit.title": "Raccontami come ti trucchi",
+  "kit.intro":
+    "Non c'è una lista di marche. Scrivi cosa usi, con parole tue, e com'è la tua pelle. Se una casella non ti riguarda, lasciala vuota.",
+  "kit.age": "La tua età",
+  "kit.ageNote": "La usa solo la tua truccatrice. Non viene mostrata a nessuno.",
+  "kit.agePick": "Scegli la tua età",
+  "kit.tastes": "Cosa ti piace",
+  "taste.natural": "Naturale",
+  "taste.poco": "Pochi prodotti",
+  "taste.color": "Colore",
+  "taste.luminosa": "Pelle luminosa",
+  "taste.mate": "Opaco",
+  "taste.ceja": "Sopracciglia definite",
+  "taste.labio": "Prima le labbra",
+  "taste.ojo": "Prima lo sguardo",
+  "kit.base": "Pelle e base",
+  "kit.base.ph":
+    "Niente, una BB o il fondotinta che hai. Marca, tonalità, se è leggero o coprente.",
+  "kit.ojos": "Occhi",
+  "kit.ojos.ph": "Mascara, matita, ombretto. Come li chiami tu.",
+  "kit.labios": "Labbra",
+  "kit.labios.ph": "Balsamo, rossetto, gloss, il colore che usi.",
+  "kit.resto": "Sopracciglia, blush e il resto",
+  "kit.resto.ph": "Quello che hai, anche uno solo.",
+  "kit.skin": "Com'è la tua pelle",
+  "kit.skin.ph":
+    "Brufoli, secca, grassa, sensibile, macchie, rossori, occhiaie. Se lo lasci vuoto, guardo la foto.",
+  "kit.continue": "Continua",
+
+  "scan.step": "Passo 3 di 4",
+  "scan.title": "Fatti vedere",
+  "scan.intro":
+    "Guarda la fotocamera con la luce davanti. Analizzo il tuo viso e la tua pelle come farebbe una truccatrice e ti propongo tre look.",
+  "scan.off": "Fotocamera spenta",
+  "scan.permission": "Il permesso viene chiesto quando la apri.",
+  "scan.loading": "Caricamento del lettore del viso.",
+  "scan.error": "Non riesco ad avviare il lettore in questo browser.",
+  "scan.locked": "Ti vedo. Preparo i riferimenti.",
+  "scan.rear": "Fotocamera posteriore. Inquadra il viso nell'ovale.",
+  "scan.front": "Cerco il tuo viso. Resta ferma nell'ovale.",
+  "scan.choose": "Scegli la fotocamera frontale o posteriore.",
+  "scan.useFront": "Usa la fotocamera frontale",
+  "scan.useRear": "Usa la fotocamera posteriore",
+  "scan.frontBtn": "Fotocamera frontale",
+  "scan.rearBtn": "Fotocamera posteriore",
+  "scan.studio": "Ritratti in studio",
+  "scan.studioIntro":
+    "Se non vuoi usare la fotocamera, scegli un ritratto e lo trucco allo stesso modo.",
+  "scan.reading": "Sto leggendo il viso",
+  "scan.applying": "Sto applicando il trucco",
+  "scan.portraitError": "Non riesco a leggere il ritratto.",
+  "scan.rearError":
+    "Non riesco ad aprire la fotocamera posteriore. Prova quella frontale o un ritratto.",
+  "scan.frontError":
+    "Non riesco ad aprire la fotocamera frontale. Prova quella posteriore o un ritratto.",
+  "depth.clara": "Pelle chiara",
+  "depth.media": "Pelle media",
+  "depth.profunda": "Pelle scura",
+
+  "opt.step": "Passo 4 di 4",
+  "opt.title1": "Tre look",
+  "opt.title2": "per te",
+  "opt.sub": "{occasion} · Naturale, medio o glamour. Scegli il tuo preferito.",
+  "opt.analysis": "Cosa vedo come truccatrice",
+  "opt.face": "Viso",
+  "opt.skin": "Pelle",
+  "opt.circles": "Occhiaie",
+  "opt.tone": "Sottotono {tone} · {depth}",
+  "opt.disclaimer": "Consiglio di trucco, non una diagnosi.",
+  "opt.analyzing": "Sto guardando il tuo viso e la tua pelle come farebbe una truccatrice…",
+  "opt.unreadable": "Non riesco a leggere questo viso, quindi non creo un riferimento generico.",
+  "opt.load1": "Guardo la pelle nella foto e adatto il trucco.",
+  "opt.load1b": "Adatto il trucco a questo viso.",
+  "opt.load2": "Preparo un'altra opzione.",
+  "opt.privacy":
+    "La tua foto serve solo a creare i tuoi look. Non viene salvata, a meno che tu non la condivida nella recensione.",
+  "opt.limit":
+    "Oggi hai già usato tutte le immagini con IA, quindi ti mostro i look disegnati sulla tua foto. I passaggi restano pensati per te. Domani potrai rivedere le immagini con IA.",
+  "opt.skinLine": "La tua pelle: {skin}",
+  "opt.skinPhoto": "Nella foto: {skin}. Non è una diagnosi.",
+
+  "shape.ovalado": "Ovale",
+  "shape.redondo": "Rotondo",
+  "shape.cuadrado": "Squadrato",
+  "shape.corazon": "A cuore",
+  "shape.alargado": "Allungato",
+  "shapeNote.ovalado": "Il viso ovale può portare il colore un po' più in alto, verso la tempia.",
+  "shapeNote.redondo": "Il blush va in diagonale verso l'orecchio, non in cerchio sulle guance.",
+  "shapeNote.cuadrado": "Ammorbidisci l'angolo della mascella e porta la luce sullo zigomo.",
+  "shapeNote.corazon":
+    "Poco prodotto sulle tempie. Un tocco di colore più in basso equilibra la fronte.",
+  "shapeNote.alargado": "Stendi il blush in orizzontale. Alzarlo allunga ancora di più il viso.",
+  "tone.calido": "caldo",
+  "tone.frio": "freddo",
+  "tone.neutro": "neutro",
+  "toneDepth.clara": "chiara",
+  "toneDepth.media": "media",
+  "toneDepth.profunda": "scura",
+  "skinType.seca": "Secca",
+  "skinType.grasa": "Grassa",
+  "skinType.mixta": "Mista",
+  "skinType.normal": "Normale",
+  "circles.no": "No",
+  "circles.leves": "Lievi",
+  "circles.marcadas": "Marcate",
+  "concern.granos": "Brufoli",
+  "concern.rojeces": "Rossori",
+  "concern.manchas": "Macchie",
+  "concern.brillo": "Lucidità",
+  "concern.poros": "Pori",
+  "concern.sequedad": "Secchezza",
+  "concern.líneas de expresión": "Linee d'espressione",
+
+  "level.natural": "Naturale",
+  "level.medio": "Medio",
+  "level.glam": "Glamour",
+  "line.dia.natural": "Pelle fresca, come appena riposata.",
+  "line.dia.medio": "Curata, senza appesantire.",
+  "line.dia.glam": "Il giorno al massimo, sempre luminosa.",
+  "line.oficina.natural": "Curata e serena.",
+  "line.oficina.medio": "Impeccabile per le riunioni.",
+  "line.oficina.glam": "Presenza da manager.",
+  "line.entrevista.natural": "Riposata e sicura.",
+  "line.entrevista.medio": "Rende bene in primo piano.",
+  "line.entrevista.glam": "Impatto, senza perdere serietà.",
+  "line.cita.natural": "Come te, nel tuo giorno migliore.",
+  "line.cita.medio": "Zigomi caldi e labbra naturali.",
+  "line.cita.glam": "Sguardo e labbra per la sera.",
+  "line.boda.natural": "Luce pulita che dura ore.",
+  "line.boda.medio": "L'invitata perfetta nelle foto.",
+  "line.boda.glam": "Look da gala che dura tutta la festa.",
+  "line.fiesta.natural": "Uscire senza pensarci troppo.",
+  "line.fiesta.medio": "Occhi definiti e pelle luminosa.",
+  "line.fiesta.glam": "Tutto lo splendore della notte.",
+  "line.fotos.natural": "La fotocamera vede la tua pelle.",
+  "line.fotos.medio": "Struttura delicata per il ritratto.",
+  "line.fotos.glam": "Look da copertina.",
+  "line.editorial.natural": "Comanda il viso.",
+  "line.editorial.medio": "Colore misurato, un tocco grafico.",
+  "line.editorial.glam": "Contrasto da studio.",
+
+  "steps.eyebrow": "Il tuo look",
+  "steps.using": "Cosa usi: {note}",
+  "steps.skinPhoto": "Nella foto, non è una diagnosi",
+  "steps.skinYours": "La tua pelle",
+  "steps.reference": "Un riferimento di come starebbe. Non è un filtro sopra la foto.",
+  "steps.retry": "Riprova i prodotti",
+  "steps.stylist": "Truccatore",
+  "steps.searching": "Cerco i prodotti per questa opzione.",
+  "steps.title": "Passaggi e prodotti",
+  "steps.yours": "Usa quello che hai già: {hers}",
+  "steps.missing": "Se ti manca, uno da profumeria:",
+  "steps.note":
+    "Il catalogo non vende prodotti né prenota truccatori. L'ordine serve a ricreare il riferimento sulla pelle.",
+  "zone.base": "Base",
+  "zone.cejas": "Sopracciglia",
+  "zone.contorno": "Contouring",
+  "zone.rubor": "Blush",
+  "zone.iluminador": "Illuminante",
+  "zone.ojos": "Occhi",
+  "zone.labios": "Labbra",
+  "zone.fijador": "Fissante",
+
+  "dir.eyebrow": "Catalogo editoriale",
+  "dir.title": "Marchi e truccatori",
+  "dir.intro":
+    "Un riferimento per costruire il look. Non è un negozio né un appuntamento reale con queste persone: il team di truccatori è della casa NEUSTA.",
+  "dir.stylists": "Truccatori",
+  "dir.loading": "Caricamento del catalogo…",
+  "tier.lujo": "Lusso",
+  "tier.prestigio": "Prestigio",
+  "tier.accesible": "Accessibile",
+
+  "fb.thanks": "Grazie{name}",
+  "fb.thanks2": "per la tua recensione",
+  "fb.sent": "Ci aiuta a rendere NEUSTA migliore per te.",
+  "fb.saved": "La tua recensione è stata salvata.",
+  "fb.title1": "Com'è andata",
+  "fb.title2": "con il tuo look?",
+  "fb.sub": "Lasciaci una recensione. Ci aiuta a migliorare.",
+  "fb.rating": "Valutazione",
+  "fb.stars": "{n} su 5",
+  "fb.pickStars": "Scegli da 1 a 5 stelle.",
+  "fb.highlight": "Cosa metteresti in evidenza?",
+  "fb.tag.loved": "Ho adorato il look",
+  "fb.tag.easy": "Facile da seguire",
+  "fb.tag.me": "Mi sono riconosciuta",
+  "fb.tag.slow": "Ci ha messo troppo",
+  "fb.tag.notme": "Non mi sono riconosciuta",
+  "fb.tag.more": "Vorrei più opzioni",
+  "fb.review": "La tua recensione",
+  "fb.review.ph": "Cosa ti è piaciuto, come ti sei vista, cosa cambieresti…",
+  "fb.name": "Il tuo nome",
+  "fb.optional": "(facoltativo)",
+  "fb.name.ph": "Come vuoi che appaia",
+  "fb.photo": "Invia la mia foto con la recensione",
+  "fb.photoAlt": "La tua foto per la recensione",
+  "fb.consentData":
+    "Accetto che NEUSTA conservi la mia email, la mia foto e la mia recensione per migliorare il servizio e contattarmi a riguardo.",
+  "fb.consentPublish":
+    "Autorizzo NEUSTA a pubblicare la mia recensione, il mio nome e la mia foto sul suo sito e sui social.",
+  "fb.consentNeeded": "Ci serve il tuo permesso per salvare la recensione.",
+  "fb.privacy":
+    "Usiamo l'email del tuo account. I tuoi dati vengono usati solo per ciò che selezioni e puoi chiederci di cancellarli quando vuoi.",
+  "fb.send": "Invia recensione",
+  "fb.sending": "Invio…",
+  "fb.error": "Non sono riuscita a inviarla. Riprova tra un momento.",
+
+  "acc.login": "Benvenuta",
+  "acc.signup": "Crea il tuo account",
+  "acc.forgot": "Recupera l'accesso",
+  "acc.reset": "Nuova password",
+  "acc.login.intro": "Accedi per scoprire il look su misura per te.",
+  "acc.signup.intro": "Il tuo spazio personale per scoprire nuovi look.",
+  "acc.forgot.intro": "Ti invieremo un link per reimpostare la password.",
+  "acc.reset.intro": "Scegli una nuova password per il tuo account.",
+  "acc.google": "Continua con Google",
+  "acc.orEmail": "oppure con la tua email",
+  "acc.googleError": "Impossibile accedere con Google. Riprova.",
+  "acc.email": "Email",
+  "acc.password": "Password",
+  "acc.showPassword": "Mostra password",
+  "acc.hidePassword": "Nascondi password",
+  "acc.min": "Almeno 8 caratteri.",
+  "acc.confirm": "Conferma password",
+  "acc.forgotLink": "Hai dimenticato la password?",
+  "acc.wait": "Un momento...",
+  "acc.loginBtn": "Accedi",
+  "acc.signupBtn": "Crea account",
+  "acc.forgotBtn": "Invia link",
+  "acc.resetBtn": "Salva password",
+  "acc.noAccount": "Non hai ancora un account? ",
+  "acc.hasAccount": "Hai già un account? ",
+  "acc.mismatch": "Le password non coincidono.",
+  "acc.loginError": "Impossibile accedere. Controlla email e password.",
+  "acc.signupError": "Impossibile creare l'account. Controlla i dati o prova ad accedere.",
+  "acc.forgotError": "Impossibile richiedere il recupero. Riprova più tardi.",
+  "acc.forgotSent":
+    "Se esiste un account con questa email, riceverai un link per recuperare la password.",
+  "acc.resetError": "Il link non è valido o è scaduto. Richiedine uno nuovo.",
+  "acc.resetDone": "La password è stata aggiornata. Ora puoi accedere.",
+  "acc.linkExpired": "Il link è scaduto o non è valido. Richiedine uno nuovo.",
+  "acc.network": "Impossibile connettersi al servizio. Riprova.",
+  "acc.loading": "Caricamento...",
+  "acc.sessionError": "Impossibile verificare la sessione. Riprova più tardi.",
+
+  "install.title": "Porta NEUSTA con te",
+  "install.sub": "Installala nella schermata Home.",
+  "install.btn": "Installa",
+  "install.close": "Chiudi",
+  "install.ios":
+    "In Safari, tocca il pulsante Condividi (il quadrato con la freccia) e scegli «Aggiungi alla schermata Home».",
+  "install.other":
+    "Apri il menu del browser (i tre puntini) e scegli «Installa app» o «Aggiungi alla schermata Home».",
+};
+
+export const DICTS: Record<Lang, Dict> = { es, en, it };
+
+/** Nombre del idioma para pedirle a la IA que responda en él. */
+export const AI_LANGUAGE: Record<Lang, string> = { es: "español", en: "inglés", it: "italiano" };
+
+function detect(): Lang {
+  try {
+    const saved = window.localStorage.getItem(STORAGE_KEY);
+    if (saved && (LANGS as readonly string[]).includes(saved)) return saved as Lang;
+  } catch {
+    /* sin almacenamiento */
+  }
+  const nav = (typeof navigator !== "undefined" ? navigator.language : "es")
+    .slice(0, 2)
+    .toLowerCase();
+  return (LANGS as readonly string[]).includes(nav) ? (nav as Lang) : "es";
+}
+
+export type Translate = (key: string, vars?: Record<string, string | number>) => string;
+
+function translator(lang: Lang): Translate {
+  return (key, vars) => {
+    let text = DICTS[lang][key] ?? DICTS.es[key] ?? key;
+    if (vars)
+      for (const [name, value] of Object.entries(vars))
+        text = text.replaceAll(`{${name}}`, String(value));
+    return text;
+  };
+}
+
+type LangContext = { lang: Lang; setLang: (lang: Lang) => void; t: Translate };
+
+const Ctx = createContext<LangContext>({
+  lang: "es",
+  setLang: () => undefined,
+  t: translator("es"),
+});
+
+export function LanguageProvider({ children }: { children: ReactNode }) {
+  const [lang, setLangState] = useState<Lang>("es");
+
+  useEffect(() => {
+    setLangState(detect());
+  }, []);
+
+  useEffect(() => {
+    document.documentElement.lang = lang;
+  }, [lang]);
+
+  const setLang = useCallback((next: Lang) => {
+    setLangState(next);
+    try {
+      window.localStorage.setItem(STORAGE_KEY, next);
+    } catch {
+      /* sin almacenamiento */
+    }
+  }, []);
+
+  const value = useMemo(() => ({ lang, setLang, t: translator(lang) }), [lang, setLang]);
+  return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
+}
+
+export function useLang() {
+  return useContext(Ctx);
+}
+
+/** Selector compacto ES · EN · IT. */
+export function LanguageSwitch({ className = "" }: { className?: string }) {
+  const { lang, setLang, t } = useLang();
+  return (
+    <div
+      role="group"
+      aria-label={t("common.language")}
+      className={`flex items-center gap-0.5 ${className}`}
+    >
+      {LANGS.map((code) => (
+        <button
+          key={code}
+          type="button"
+          onClick={() => setLang(code)}
+          aria-pressed={lang === code}
+          aria-label={DICTS[code]["lang.name"]}
+          className={`min-h-9 min-w-9 rounded-full px-1.5 text-[12px] font-semibold uppercase tracking-wide transition-colors ${
+            lang === code ? "bg-blush text-white" : "text-muted"
+          }`}
+        >
+          {code}
+        </button>
+      ))}
+    </div>
+  );
+}

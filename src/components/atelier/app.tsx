@@ -7,12 +7,13 @@ import { StepsScreen } from "@/components/atelier/steps";
 import { referenceLooks, type ReferenceCard, type ReferenceResult } from "@/lib/makeup/imagine";
 import { aiLook } from "@/lib/makeup/ai-look";
 import { renderCard } from "@/lib/makeup/preview";
-import { noteZones, personLine, type PersonBrief } from "@/lib/makeup/profile";
+import { noteZones, type PersonBrief } from "@/lib/makeup/profile";
 import { getDirectory, recommendLook } from "@/lib/makeup/server";
 import type { Capture, Directory, LookPlan, SituationId } from "@/lib/makeup/types";
 import { ArrowLeft, LogOut, Users } from "lucide-react";
 import { analysisLine, analyzeFace, type FaceAnalysis } from "@/lib/makeup/analysis";
 import { jpegDataUrl } from "@/lib/makeup/photo";
+import { LanguageSwitch, useLang } from "@/lib/i18n";
 import { signOut } from "@/lib/auth/client";
 
 const referenceJobs = new Map<string, Promise<ReferenceResult>>();
@@ -38,6 +39,7 @@ export function AtelierApp() {
   const upgraded = useRef(new Set<string>());
   const [aiNote, setAiNote] = useState("");
   const [signOutError, setSignOutError] = useState("");
+  const { t, lang } = useLang();
   const [analysis, setAnalysis] = useState<FaceAnalysis | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
   const analyzedShot = useRef(-1);
@@ -76,13 +78,14 @@ export function AtelierApp() {
           .filter(Boolean)
           .join(". En la foto: ")
           .slice(0, 300),
+        lang,
       },
     })
       .then((data) => setPlan(data))
       .catch((error: unknown) => {
         setPlanError(error instanceof Error ? error.message : "No pude armar el look.");
       });
-  }, [situation, capture, profile, seen.skin, analysis, analysisSkin]);
+  }, [situation, capture, profile, seen.skin, analysis, analysisSkin, lang]);
 
   useEffect(() => {
     loadDirectory();
@@ -174,7 +177,7 @@ export function AtelierApp() {
     analyzedShot.current = shot;
     setAnalysis(null);
     setAnalyzing(true);
-    analyzeFace({ data: { photo: jpegDataUrl(capture.photo) } })
+    analyzeFace({ data: { photo: jpegDataUrl(capture.photo), lang } })
       .then((result) => {
         if (shotRef.current === shot) setAnalysis(result);
       })
@@ -182,7 +185,7 @@ export function AtelierApp() {
       .finally(() => {
         if (shotRef.current === shot) setAnalyzing(false);
       });
-  }, [view, capture, shot]);
+  }, [view, capture, shot, lang]);
 
   // --- Navegación con el historial: el gesto "atrás" del móvil vuelve a la pantalla anterior.
   const viewRef = useRef<View>("home");
@@ -249,7 +252,8 @@ export function AtelierApp() {
           >
             NEUSTA
           </button>
-          <nav className="flex items-center gap-1" aria-label="Secciones">
+          <nav className="flex items-center gap-1" aria-label="NEUSTA">
+            <LanguageSwitch />
             {view !== "home" ? (
               <button
                 type="button"
@@ -257,13 +261,13 @@ export function AtelierApp() {
                 className="inline-flex min-h-11 items-center gap-1 px-3 text-sm"
               >
                 <ArrowLeft className="size-4" aria-hidden="true" />
-                Volver
+                {t("common.back")}
               </button>
             ) : null}
             <button
               type="button"
               onClick={openDirectory}
-              aria-label="Estilistas"
+              aria-label={t("common.stylists")}
               className="inline-grid min-h-11 min-w-11 place-items-center rounded-full"
             >
               <Users className="size-5" strokeWidth={1.6} aria-hidden="true" />
@@ -273,11 +277,9 @@ export function AtelierApp() {
                 type="button"
                 onClick={() => {
                   setSignOutError("");
-                  void signOut().catch(() =>
-                    setSignOutError("No se pudo cerrar sesión. Inténtalo de nuevo."),
-                  );
+                  void signOut().catch(() => setSignOutError(t("common.signOutError")));
                 }}
-                aria-label="Cerrar sesión"
+                aria-label={t("common.signOut")}
                 className="inline-grid min-h-11 min-w-11 place-items-center rounded-full"
               >
                 <LogOut className="size-5" strokeWidth={1.6} aria-hidden="true" />
@@ -332,8 +334,7 @@ export function AtelierApp() {
       ) : null}
       {view === "options" && aiNote.includes("limite-diario") ? (
         <p className="mx-auto mt-3 max-w-md rounded-2xl bg-white/70 px-4 py-3 text-center text-sm text-ink">
-          Hoy ya has creado todas tus imágenes con IA, así que te enseño los looks dibujados sobre
-          tu foto. Los pasos siguen siendo para ti. Mañana podrás volver a ver las imágenes con IA.
+          {t("opt.limit")}
         </p>
       ) : null}
       {view === "options" &&
@@ -351,12 +352,12 @@ export function AtelierApp() {
           read={capture?.read ?? null}
           analysis={analysis}
           analyzing={analyzing}
-          summary={profile ? personLine(profile) : ""}
+          summary={profile ? profile.tastes.map((id) => t(`taste.${id}`)).join(", ") : ""}
           skinLine={
             profile?.skin
-              ? `Tu piel: ${profile.skin}`
+              ? t("opt.skinLine", { skin: profile.skin })
               : seen.fromPhoto && seen.skin
-                ? `En la foto: ${seen.skin}. No es un diagnóstico.`
+                ? t("opt.skinPhoto", { skin: seen.skin })
                 : ""
           }
           readingSkin={!profile?.skin}
@@ -387,7 +388,7 @@ export function AtelierApp() {
           skin={profile?.skin || seen.skin}
           skinFromPhoto={!profile?.skin && seen.fromPhoto}
           kit={profile?.kit ?? null}
-          summary={profile ? personLine(profile) : ""}
+          summary={profile ? profile.tastes.map((id) => t(`taste.${id}`)).join(", ") : ""}
           photo={capture?.source === "camera" ? jpegDataUrl(capture.photo) : undefined}
         />
       ) : null}

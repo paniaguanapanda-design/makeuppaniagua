@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { Eye, EyeOff } from "lucide-react";
 import { authClient } from "@/lib/auth/client";
 import { googleSignInAvailable } from "@/lib/auth/google";
+import { LanguageSwitch, useLang } from "@/lib/i18n";
 
 function GoogleIcon() {
   return (
@@ -39,6 +40,7 @@ export function AccessScreen() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [googleOn, setGoogleOn] = useState(false);
+  const { t } = useLang();
 
   useEffect(() => {
     googleSignInAvailable()
@@ -52,11 +54,11 @@ export function AccessScreen() {
     try {
       const result = await authClient.signIn.social({ provider: "google", callbackURL: "/" });
       if (result.error) {
-        setError("No se pudo entrar con Google. Inténtalo de nuevo.");
+        setError("acc.googleError");
         setBusy(false);
       }
     } catch {
-      setError("No se pudo entrar con Google. Inténtalo de nuevo.");
+      setError("acc.googleError");
       setBusy(false);
     }
   }
@@ -69,7 +71,7 @@ export function AccessScreen() {
       window.history.replaceState(null, "", "/restablecer");
     } else if (params.has("error")) {
       setMode("forgot");
-      setError("El enlace ha caducado o no es válido. Solicita uno nuevo.");
+      setError("acc.linkExpired");
     }
   }, []);
 
@@ -86,14 +88,14 @@ export function AccessScreen() {
     setError("");
     setMessage("");
     if ((mode === "signup" || mode === "reset") && password !== confirmation) {
-      setError("Las contraseñas no coinciden.");
+      setError("acc.mismatch");
       return;
     }
     setBusy(true);
     try {
       if (mode === "login") {
         const result = await authClient.signIn.email({ email: email.trim(), password });
-        if (result.error) setError("No se pudo ingresar. Revisa tu correo y contraseña.");
+        if (result.error) setError("acc.loginError");
         else window.location.assign("/");
       } else if (mode === "signup") {
         const result = await authClient.signUp.email({
@@ -101,8 +103,7 @@ export function AccessScreen() {
           password,
           name: "Usuaria de NEUSTA",
         });
-        if (result.error)
-          setError("No se pudo crear la cuenta. Revisa los datos o intenta ingresar.");
+        if (result.error) setError("acc.signupError");
         else window.location.assign("/");
       } else if (mode === "forgot") {
         const result = await authClient.requestPasswordReset({
@@ -110,46 +111,45 @@ export function AccessScreen() {
           redirectTo: `${window.location.origin}/restablecer`,
         });
         if (result.error) {
-          setError("No se pudo solicitar la recuperación. Inténtalo más tarde.");
+          setError("acc.forgotError");
         } else {
-          setMessage(
-            "Si existe una cuenta con ese correo, recibirás un enlace para recuperar tu contraseña.",
-          );
+          setMessage("acc.forgotSent");
         }
       } else {
         const result = await authClient.resetPassword({ newPassword: password, token });
         if (result.error) {
-          setError("El enlace no es válido o ha caducado. Solicita uno nuevo.");
+          setError("acc.resetError");
         } else {
           window.history.replaceState(null, "", "/restablecer");
           changeMode("login");
-          setMessage("Tu contraseña se actualizó. Ya puedes ingresar.");
+          setMessage("acc.resetDone");
         }
       }
     } catch {
-      setError("No fue posible conectar con el servicio. Inténtalo nuevamente.");
+      setError("acc.network");
     } finally {
       setBusy(false);
     }
   }
 
   const title = {
-    login: "Bienvenida",
-    signup: "Crea tu cuenta",
-    forgot: "Recupera tu acceso",
-    reset: "Nueva contraseña",
+    login: t("acc.login"),
+    signup: t("acc.signup"),
+    forgot: t("acc.forgot"),
+    reset: t("acc.reset"),
   }[mode];
 
   return (
     <main className="access-page">
       <div className="access-card glass">
+        <LanguageSwitch className="-mt-2 mb-2 justify-center" />
         <p className="brand">NEUSTA</p>
         <h1>{title}</h1>
         <p className="access-intro">
-          {mode === "login" && "Ingresa para descubrir tu look a tu medida."}
-          {mode === "signup" && "Tu espacio personal para descubrir nuevos looks."}
-          {mode === "forgot" && "Te enviaremos un enlace para restablecer tu contraseña."}
-          {mode === "reset" && "Elige una contraseña nueva para tu cuenta."}
+          {mode === "login" && t("acc.login.intro")}
+          {mode === "signup" && t("acc.signup.intro")}
+          {mode === "forgot" && t("acc.forgot.intro")}
+          {mode === "reset" && t("acc.reset.intro")}
         </p>
         {googleOn && (mode === "login" || mode === "signup") && (
           <>
@@ -160,10 +160,11 @@ export function AccessScreen() {
               className="mt-2 inline-flex min-h-12 w-full items-center justify-center gap-3 rounded-full border border-line bg-white px-5 text-[15px] font-medium text-ink shadow-sm"
             >
               <GoogleIcon />
-              Continuar con Google
+              {t("acc.google")}
             </button>
             <p className="my-4 flex items-center gap-3 text-xs text-muted" aria-hidden="true">
-              <span className="h-px flex-1 bg-line" />o con tu correo
+              <span className="h-px flex-1 bg-line" />
+              {t("acc.orEmail")}
               <span className="h-px flex-1 bg-line" />
             </p>
           </>
@@ -171,7 +172,7 @@ export function AccessScreen() {
         <form className="access-form" onSubmit={submit}>
           {mode !== "reset" && (
             <label>
-              Correo electrónico
+              {t("acc.email")}
               <input
                 type="email"
                 autoComplete="email"
@@ -183,7 +184,7 @@ export function AccessScreen() {
           )}
           {mode !== "forgot" && (
             <label>
-              Contraseña
+              {t("acc.password")}
               <span className="access-password">
                 <input
                   type={showPassword ? "text" : "password"}
@@ -196,18 +197,18 @@ export function AccessScreen() {
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+                  aria-label={showPassword ? t("acc.hidePassword") : t("acc.showPassword")}
                   aria-pressed={showPassword}
                 >
                   {showPassword ? <EyeOff size={19} /> : <Eye size={19} />}
                 </button>
               </span>
-              {mode !== "login" && <span className="access-hint">Mínimo 8 caracteres.</span>}
+              {mode !== "login" && <span className="access-hint">{t("acc.min")}</span>}
             </label>
           )}
           {(mode === "signup" || mode === "reset") && (
             <label>
-              Confirmar contraseña
+              {t("acc.confirm")}
               <input
                 type={showPassword ? "text" : "password"}
                 autoComplete="new-password"
@@ -220,34 +221,34 @@ export function AccessScreen() {
           )}
           {error && (
             <p className="access-error" role="alert">
-              {error}
+              {t(error)}
             </p>
           )}
           {message && (
             <p className="access-message" role="status">
-              {message}
+              {t(message)}
             </p>
           )}
           {mode === "login" && (
             <button className="access-link" type="button" onClick={() => changeMode("forgot")}>
-              ¿Olvidaste tu contraseña?
+              {t("acc.forgotLink")}
             </button>
           )}
           <button className="access-submit" type="submit" disabled={busy}>
             {busy
-              ? "Un momento..."
+              ? t("acc.wait")
               : {
-                  login: "Ingresar",
-                  signup: "Crear cuenta",
-                  forgot: "Enviar enlace",
-                  reset: "Guardar contraseña",
+                  login: t("acc.loginBtn"),
+                  signup: t("acc.signupBtn"),
+                  forgot: t("acc.forgotBtn"),
+                  reset: t("acc.resetBtn"),
                 }[mode]}
           </button>
         </form>
         <p className="access-switch">
-          {mode === "login" ? "¿Aún no tienes cuenta? " : "¿Ya tienes una cuenta? "}
+          {mode === "login" ? t("acc.noAccount") : t("acc.hasAccount")}
           <button type="button" onClick={() => changeMode(mode === "login" ? "signup" : "login")}>
-            {mode === "login" ? "Crear cuenta" : "Ingresar"}
+            {mode === "login" ? t("acc.signupBtn") : t("acc.loginBtn")}
           </button>
         </p>
       </div>

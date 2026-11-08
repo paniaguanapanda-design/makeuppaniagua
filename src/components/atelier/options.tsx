@@ -1,15 +1,8 @@
 import { ArrowRight } from "lucide-react";
-import {
-  DEPTH_LABEL,
-  SHAPE_LABEL,
-  SHAPE_NOTE,
-  TONE_LABEL,
-  type FaceRead,
-  type SituationId,
-  situationById,
-} from "@/lib/makeup/types";
+import type { FaceRead, SituationId } from "@/lib/makeup/types";
 import type { ReferenceCard } from "@/lib/makeup/imagine";
 import type { FaceAnalysis } from "@/lib/makeup/analysis";
+import { useLang } from "@/lib/i18n";
 
 export function OptionsScreen({
   situation,
@@ -38,54 +31,55 @@ export function OptionsScreen({
   onRetry: () => void;
   onChoose: (card: ReferenceCard) => void;
 }) {
-  const occasion = situationById(situation);
+  const { t } = useLang();
   return (
     <div className="mx-auto max-w-6xl px-4 pb-16 pt-8">
-      <p className="step-eyebrow text-center">Paso 4 de 4</p>
+      <p className="step-eyebrow text-center">{t("opt.step")}</p>
       <h1 className="mx-auto mt-3 max-w-3xl text-center text-4xl">
-        Tres looks <em>para ti</em>
+        {t("opt.title1")} <em>{t("opt.title2")}</em>
       </h1>
       <div className="hair" />
       <p className="text-center text-sm text-muted">
-        {occasion.label} · Natural, medio o glamuroso. Elige tu favorito.
+        {t("opt.sub", { occasion: t(`sit.${situation}`) })}
       </p>
       {analysis ? (
         <section
           className="glass mx-auto mt-6 max-w-xl rounded-[1.6rem] p-5 text-center"
-          aria-label="Lo que veo como maquilladora"
+          aria-label={t("opt.analysis")}
         >
-          <p className="step-eyebrow">Lo que veo como maquilladora</p>
+          <p className="step-eyebrow">{t("opt.analysis")}</p>
           <dl className="mt-4 grid grid-cols-3 gap-3 text-sm">
             <div>
-              <dt className="text-[11px] text-muted">Rostro</dt>
+              <dt className="text-[11px] text-muted">{t("opt.face")}</dt>
               <dd className="font-medium">
-                {SHAPE_LABEL[analysis.shape ?? read?.shape ?? "ovalado"]}
+                {t(`shape.${analysis.shape ?? read?.shape ?? "ovalado"}`)}
               </dd>
             </div>
             <div>
-              <dt className="text-[11px] text-muted">Piel</dt>
-              <dd className="font-medium capitalize">{analysis.skinType || "—"}</dd>
+              <dt className="text-[11px] text-muted">{t("opt.skin")}</dt>
+              <dd className="font-medium">
+                {analysis.skinType ? t(`skinType.${analysis.skinType}`) : "—"}
+              </dd>
             </div>
             <div>
-              <dt className="text-[11px] text-muted">Ojeras</dt>
-              <dd className="font-medium capitalize">{analysis.darkCircles}</dd>
+              <dt className="text-[11px] text-muted">{t("opt.circles")}</dt>
+              <dd className="font-medium">{t(`circles.${analysis.darkCircles}`)}</dd>
             </div>
           </dl>
           {read ? (
             <p className="mt-3 text-xs text-muted">
-              Tono {TONE_LABEL[read.undertone].toLowerCase()} ·{" "}
-              {DEPTH_LABEL[read.depth].toLowerCase()}
+              {t("opt.tone", {
+                tone: t(`tone.${read.undertone}`).toLowerCase(),
+                depth: t(`toneDepth.${read.depth}`).toLowerCase(),
+              })}
             </p>
           ) : null}
           {analysis.quality ? <p className="mt-2 text-sm text-muted">{analysis.quality}</p> : null}
           {analysis.concerns.length ? (
             <div className="mt-3 flex flex-wrap justify-center gap-2">
               {analysis.concerns.map((item) => (
-                <span
-                  key={item}
-                  className="rounded-full bg-white/70 px-3 py-1 text-xs capitalize text-ink"
-                >
-                  {item}
+                <span key={item} className="rounded-full bg-white/70 px-3 py-1 text-xs text-ink">
+                  {t(`concern.${item}`)}
                 </span>
               ))}
             </div>
@@ -95,24 +89,20 @@ export function OptionsScreen({
               <em>«{analysis.advice}»</em>
             </p>
           ) : null}
-          <p className="mt-2 text-[11px] text-muted">
-            Orientación de maquillaje, no un diagnóstico.
-          </p>
+          <p className="mt-2 text-[11px] text-muted">{t("opt.disclaimer")}</p>
         </section>
       ) : analyzing ? (
         <p className="mx-auto mt-5 max-w-xl text-center text-sm text-muted" aria-live="polite">
-          Estoy mirando tu rostro y tu piel como lo haría una maquilladora…
+          {t("opt.analyzing")}
         </p>
       ) : read ? (
         <p className="mx-auto mt-4 max-w-2xl text-center text-sm">
-          {SHAPE_LABEL[read.shape]} · {TONE_LABEL[read.undertone]} · {DEPTH_LABEL[read.depth]}.{" "}
-          {SHAPE_NOTE[read.shape]}
+          {t(`shape.${read.shape}`)} · {t(`tone.${read.undertone}`)} ·{" "}
+          {t(`toneDepth.${read.depth}`)}. {t(`shapeNote.${read.shape}`)}
           {summary ? ` ${summary}.` : ""}
         </p>
       ) : (
-        <p className="mt-4 text-center text-sm text-blush">
-          No pude leer este rostro, así que no armo una referencia genérica.
-        </p>
+        <p className="mt-4 text-center text-sm text-blush">{t("opt.unreadable")}</p>
       )}
       {skinLine && !analysis ? (
         <p className="mx-auto mt-2 max-w-2xl text-center text-sm">{skinLine}</p>
@@ -125,7 +115,7 @@ export function OptionsScreen({
             onClick={onRetry}
             className="mt-4 min-h-11 rounded-full bg-ink px-5 text-surface"
           >
-            Reintentar
+            {t("common.retry")}
           </button>
         </div>
       ) : null}
@@ -137,15 +127,17 @@ export function OptionsScreen({
                 type="button"
                 data-testid={`option-${item.id}`}
                 onClick={() => onChoose(item)}
-                aria-label={`${item.title}: ${item.line}`}
+                aria-label={`${t(`level.${item.id}`)}: ${t(`line.${situation}.${item.id}`)}`}
                 className="look-choice-card"
               >
                 <img src={item.imageUrl} alt="" className="look-choice-image object-cover" />
                 <span className="min-w-0 flex-1 py-3 pr-4 text-left">
                   <span className="block font-display text-[1.4rem] leading-tight">
-                    {item.title}
+                    {t(`level.${item.id}`)}
                   </span>
-                  <span className="mt-1 block text-xs leading-5 text-muted">{item.line}</span>
+                  <span className="mt-1 block text-xs leading-5 text-muted">
+                    {t(`line.${situation}.${item.id}`)}
+                  </span>
                 </span>
                 <span className="look-choice-arrow" aria-hidden="true">
                   <ArrowRight className="size-4" />
@@ -157,19 +149,13 @@ export function OptionsScreen({
                 <div key={item} className="look-choice-card">
                   <div className="look-choice-image animate-pulse bg-clay/60" />
                   <p className="flex-1 px-4 py-4 text-sm text-muted">
-                    {item === 0
-                      ? readingSkin
-                        ? "Miro la piel en la foto y ajusto el maquillaje."
-                        : "Ajustando el maquillaje a esta cara."
-                      : "Preparando otra opción."}
+                    {item === 0 ? (readingSkin ? t("opt.load1") : t("opt.load1b")) : t("opt.load2")}
                   </p>
                 </div>
               ))
             : null}
       </div>
-      <p className="mt-6 text-center text-sm text-muted">
-        Tu foto solo se usa para crear tus looks. No se guarda salvo que la compartas en tu reseña.
-      </p>
+      <p className="mt-6 text-center text-sm text-muted">{t("opt.privacy")}</p>
     </div>
   );
 }
