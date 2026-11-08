@@ -340,6 +340,7 @@ async function translateTexts(texts: string[], lang: "en" | "it"): Promise<strin
         const raw = textFromResponse(await response.json());
         const match = raw.match(/\[[\s\S]*\]/);
         const list = match ? (JSON.parse(match[0]) as unknown[]) : [];
+        console.log(`[xai] traducción de ${missing.length} textos (${lang})`);
         if (list.length === missing.length) {
           missing.forEach((text, index) => {
             const value = list[index];

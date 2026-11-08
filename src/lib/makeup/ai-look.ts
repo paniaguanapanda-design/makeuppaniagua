@@ -52,7 +52,7 @@ export const aiLook = createServerFn({ method: "POST" })
     const started = Date.now();
     try {
       const result = await generate(data, grokKey, key);
-      console.log(`[ai-look] imagen ${data.optionId} generada en ${Date.now() - started} ms`);
+      console.log(`[xai] imagen ${data.optionId} generada en ${Date.now() - started} ms`);
       return result;
     } catch (error) {
       console.error(

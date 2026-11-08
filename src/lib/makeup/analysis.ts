@@ -141,6 +141,7 @@ async function askGrok(
       console.error("[imagine] análisis", response.status);
       return null;
     }
+    console.log(`[xai] análisis de rostro (${lang})`);
     return parseAnalysis(textFromResponse(await response.json()));
   } catch (error) {
     console.error("[imagine] análisis", String(error));
