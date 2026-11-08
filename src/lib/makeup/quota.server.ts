@@ -21,3 +21,15 @@ export async function takeImageQuota(userId: string) {
     return true;
   }
 }
+
+/** Devuelve una generación que no llegó a producir imagen. */
+export async function refundImageQuota(userId: string) {
+  try {
+    const sql = await getSql();
+    await sql`
+      update image_usage set count = greatest(count - 1, 0)
+      where client = ${`user:${userId}`} and day = current_date`;
+  } catch (error) {
+    console.error("[ai-look] no pude devolver el cupo", error);
+  }
+}

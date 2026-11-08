@@ -330,7 +330,17 @@ export function AtelierApp() {
           }}
         />
       ) : null}
-      {view === "options" && aiNote && aiNote !== "ok" && import.meta.env.DEV ? (
+      {view === "options" && aiNote.includes("limite-diario") ? (
+        <p className="mx-auto mt-3 max-w-md rounded-2xl bg-white/70 px-4 py-3 text-center text-sm text-ink">
+          Hoy ya has creado todas tus imágenes con IA, así que te enseño los looks dibujados sobre
+          tu foto. Los pasos siguen siendo para ti. Mañana podrás volver a ver las imágenes con IA.
+        </p>
+      ) : null}
+      {view === "options" &&
+      aiNote &&
+      aiNote !== "ok" &&
+      !aiNote.includes("limite-diario") &&
+      import.meta.env.DEV ? (
         <p className="mx-auto max-w-6xl px-4 pt-2 text-center text-xs text-muted">
           IA no disponible: {aiNote}
         </p>

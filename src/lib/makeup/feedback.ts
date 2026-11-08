@@ -89,6 +89,9 @@ async function sendFeedbackEmail(review: Review): Promise<FeedbackEmailStatus> {
     return "failed";
   }
 
+  console.log(
+    `[feedback] correo de reseña ${id} enviado (${review.photo ? "con foto" : "sin foto"})`,
+  );
   return "sent";
 }
 
