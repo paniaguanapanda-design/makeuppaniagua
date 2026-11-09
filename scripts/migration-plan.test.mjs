@@ -66,6 +66,7 @@ test("the auth schema ships outside the globbed directory", () => {
       "0004_opiniones.sql",
       "0005_auth.sql",
       "0006_resenas_y_limites.sql",
+      "0007_mis_looks.sql",
     ],
   );
   assert.equal(isMigrationFile("auth"), false);

@@ -142,15 +142,21 @@
   font-weight: 400;
 }
 
-.access-error, .access-message {
+.access-error,
+.access-message {
   margin: 0;
   font-size: 0.85rem;
 }
 
-.access-error { color: #96263b; }
-.access-message { color: #315945; }
+.access-error {
+  color: #96263b;
+}
+.access-message {
+  color: #315945;
+}
 
-.access-link, .access-switch button {
+.access-link,
+.access-switch button {
   color: var(--color-accent);
   font-size: 0.8rem;
   font-weight: 600;
@@ -158,7 +164,9 @@
   text-underline-offset: 3px;
 }
 
-.access-link { justify-self: end; }
+.access-link {
+  justify-self: end;
+}
 
 .access-submit {
   min-height: 3.1rem;
@@ -265,7 +273,7 @@
 .app-fixed-bar {
   position: fixed;
   z-index: 30;
-  bottom: var(--install-h, 0px);
+  bottom: calc(var(--install-h, 0px) + var(--nav-h, 0px));
   left: 50%;
   width: min(100%, 430px);
   padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
@@ -692,7 +700,7 @@ h2 em {
 
 /* Las pantallas largas dejan sitio al aviso de instalación al final. */
 .app-shell {
-  padding-bottom: var(--install-h, 0px);
+  padding-bottom: calc(var(--install-h, 0px) + var(--nav-h, 0px));
 }
 
 /* Aviso sobre la miniatura mientras llega la imagen con IA. */
@@ -720,6 +728,308 @@ h2 em {
 
 @media (prefers-reduced-motion: reduce) {
   .ai-badge {
+    animation: none;
+  }
+}
+
+/* ---------- Título fijo arriba: solo la marca ---------- */
+.app-title-bar {
+  display: grid;
+  height: 3.5rem;
+  place-items: center;
+  border-bottom: 1px solid rgb(255 255 255 / 70%);
+  background: rgb(255 248 246 / 72%);
+  -webkit-backdrop-filter: blur(18px) saturate(150%);
+  backdrop-filter: blur(18px) saturate(150%);
+}
+.app-title {
+  min-height: 2.75rem;
+  padding: 0 1rem;
+  font-family: var(--font-display);
+  font-size: 1.35rem;
+  letter-spacing: 0.32em;
+  padding-left: calc(1rem + 0.32em);
+  color: var(--color-ink);
+}
+
+/* Aviso de instalación: por encima de la barra inferior. */
+.install-prompt {
+  bottom: calc(0.75rem + var(--nav-h, 0px));
+}
+
+/* ---------- Menú de idioma (globo) y de cuenta ---------- */
+.lang-trigger {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  gap: 0.3rem;
+  border-radius: 9999px;
+  padding: 0 0.6rem;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--color-ink);
+}
+.lang-pop {
+  position: absolute;
+  z-index: 60;
+  left: 50%;
+  display: flex;
+  min-width: 9.5rem;
+  flex-direction: column;
+  gap: 0.15rem;
+  transform: translateX(-50%);
+  border-radius: 1.2rem;
+  padding: 0.4rem;
+  background: rgb(255 250 248 / 98%);
+  box-shadow: 0 16px 40px rgb(58 42 46 / 18%);
+  animation: pop-in 160ms ease-out;
+}
+.lang-pop.is-down {
+  top: calc(100% + 0.4rem);
+}
+.lang-pop.is-up {
+  bottom: calc(100% + 0.9rem);
+}
+.lang-pop.is-right {
+  right: 0;
+  left: auto;
+  transform: none;
+}
+.lang-pop button {
+  display: flex;
+  min-height: 2.75rem;
+  align-items: center;
+  gap: 0.6rem;
+  border-radius: 0.9rem;
+  padding: 0 0.75rem;
+  font-size: 13px;
+  color: var(--color-ink);
+  white-space: nowrap;
+}
+.lang-pop button b {
+  min-width: 1.6rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--color-blush);
+}
+.lang-pop button.is-on {
+  background: linear-gradient(135deg, #e9a6b4, #b4546c);
+  color: #fff;
+}
+.lang-pop button.is-on b {
+  color: #fff;
+}
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(6px) scale(0.97);
+  }
+}
+.lang-pop.is-right {
+  animation: none;
+}
+
+/* ---------- Barra de navegación inferior (glassmorphism) ---------- */
+.bottom-nav {
+  position: fixed;
+  z-index: 40;
+  left: 50%;
+  bottom: 0;
+  width: min(100%, 430px);
+  transform: translateX(-50%);
+  padding: 0 0.75rem max(0.6rem, env(safe-area-inset-bottom));
+  pointer-events: none;
+}
+.bottom-nav-inner {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  align-items: end;
+  pointer-events: auto;
+  border: 1px solid rgb(255 255 255 / 80%);
+  background: linear-gradient(135deg, rgb(255 246 244 / 70%), rgb(250 225 230 / 58%));
+  box-shadow:
+    0 14px 34px rgb(131 24 67 / 14%),
+    inset 0 1px 0 rgb(255 255 255 / 85%);
+  -webkit-backdrop-filter: blur(22px) saturate(170%);
+  backdrop-filter: blur(22px) saturate(170%);
+}
+.nav-item {
+  display: flex;
+  justify-content: center;
+}
+.nav-item > button,
+.bottom-nav .nav-item.lang-menu > button,
+.bottom-nav button.nav-item {
+  display: flex;
+  min-height: 3.6rem;
+  width: 100%;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.15rem;
+  padding: 0.35rem 0;
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  color: var(--color-muted);
+  -webkit-tap-highlight-color: transparent;
+}
+.nav-bubble {
+  display: grid;
+  width: 2.35rem;
+  height: 2.35rem;
+  place-items: center;
+  border-radius: 9999px;
+  transition:
+    transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    background 220ms ease,
+    color 220ms ease;
+}
+.nav-icon {
+  width: 21px;
+  height: 21px;
+}
+.nav-label {
+  line-height: 1.1;
+  white-space: nowrap;
+}
+.bottom-nav .is-active {
+  color: var(--color-accent);
+  font-weight: 600;
+}
+.bottom-nav button:active .nav-bubble {
+  transform: scale(0.92);
+}
+
+/* A · Pétalo: píldora flotante; la pestaña activa florece en rosa. */
+.nav-petalo .bottom-nav-inner {
+  border-radius: 1.75rem;
+  padding: 0.3rem;
+}
+.nav-petalo .nav-bubble {
+  color: #9b7480;
+}
+.nav-petalo .is-active .nav-bubble {
+  color: #fff;
+  background: linear-gradient(135deg, #f0a9b9, #b4546c 70%);
+  box-shadow: 0 6px 16px rgb(180 84 108 / 38%);
+  transform: translateY(-2px);
+}
+
+/* B · Arcoíris: barra completa; cada icono con su color de maquillaje. */
+.nav-arcoiris {
+  padding: 0;
+}
+.nav-arcoiris .bottom-nav-inner {
+  border-radius: 1.5rem 1.5rem 0 0;
+  border-bottom: 0;
+  padding: 0.25rem 0.5rem max(0.35rem, env(safe-area-inset-bottom));
+}
+.nav-arcoiris .nav-bubble {
+  width: 2.2rem;
+  height: 2.2rem;
+}
+.nav-arcoiris .nav-home .nav-bubble {
+  color: #c06a7c;
+  background: rgb(240 169 185 / 26%);
+}
+.nav-arcoiris .nav-create .nav-bubble {
+  color: #c9785b;
+  background: rgb(240 178 148 / 28%);
+}
+.nav-arcoiris .nav-looks .nav-bubble {
+  color: #a8475f;
+  background: rgb(214 112 140 / 22%);
+}
+.nav-arcoiris .nav-lang .nav-bubble {
+  color: #8a6bb0;
+  background: rgb(190 168 226 / 30%);
+}
+.nav-arcoiris .nav-account .nav-bubble {
+  color: #a8874f;
+  background: rgb(222 196 140 / 30%);
+}
+.nav-arcoiris .is-active .nav-bubble {
+  box-shadow:
+    0 0 0 2px rgb(255 255 255 / 90%),
+    0 6px 14px rgb(131 24 67 / 18%);
+  transform: translateY(-2px);
+}
+.nav-arcoiris .is-active .nav-label::after {
+  content: "";
+  display: block;
+  width: 4px;
+  height: 4px;
+  margin: 2px auto 0;
+  border-radius: 9999px;
+  background: currentColor;
+}
+
+/* C · Joya: píldora con la brocha en el centro, en relieve. */
+.nav-joya .bottom-nav-inner {
+  border-radius: 1.75rem;
+  padding: 0.3rem 0.3rem 0.3rem;
+}
+.nav-joya .nav-bubble {
+  color: #b4546c;
+}
+.nav-joya .is-active .nav-bubble {
+  background: rgb(240 169 185 / 30%);
+}
+.nav-joya .nav-create .nav-bubble {
+  width: 3.4rem;
+  height: 3.4rem;
+  margin-top: -1.6rem;
+  color: #fff;
+  background:
+    radial-gradient(circle at 30% 25%, rgb(255 255 255 / 55%), transparent 45%),
+    linear-gradient(135deg, #f3b0a0, #d7708a 45%, #9b3d58);
+  border: 3px solid rgb(255 248 246 / 92%);
+  box-shadow: 0 10px 22px rgb(155 61 88 / 40%);
+}
+.nav-joya .nav-create .nav-icon {
+  width: 24px;
+  height: 24px;
+}
+.nav-joya .nav-create.is-active .nav-bubble {
+  transform: translateY(-2px) rotate(-8deg);
+}
+
+/* Mis looks */
+.saved-tile {
+  overflow: hidden;
+  border-radius: 1.4rem;
+  border: 1px solid rgb(255 255 255 / 82%);
+  background: rgb(255 251 249 / 70%);
+  box-shadow: 0 10px 24px rgb(90 55 48 / 8%);
+}
+.toast {
+  position: fixed;
+  z-index: 70;
+  left: 50%;
+  bottom: calc(var(--nav-h, 0px) + 1rem);
+  transform: translateX(-50%);
+  border-radius: 9999px;
+  background: var(--color-ink);
+  padding: 0.6rem 1rem;
+  font-size: 13px;
+  color: #fff;
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .bottom-nav-inner,
+  .app-title-bar {
+    background: #fff8f6;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .nav-bubble,
+  .lang-pop {
+    transition: none;
     animation: none;
   }
 }

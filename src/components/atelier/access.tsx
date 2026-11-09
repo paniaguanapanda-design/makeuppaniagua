@@ -142,7 +142,7 @@ export function AccessScreen() {
   return (
     <main className="access-page">
       <div className="access-card glass">
-        <LanguageSwitch className="-mt-2 mb-2 justify-center" />
+        <LanguageSwitch className="mx-auto -mt-2 mb-2 w-fit" />
         <p className="brand">NEUSTA</p>
         <h1>{title}</h1>
         <p className="access-intro">

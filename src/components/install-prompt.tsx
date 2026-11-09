@@ -85,7 +85,7 @@ export function InstallPrompt() {
     <div
       role="dialog"
       aria-label="Instalar NEUSTA"
-      className="glass fixed inset-x-4 bottom-4 z-50 mx-auto max-w-sm rounded-[1.6rem] px-4 py-3"
+      className="install-prompt glass fixed inset-x-4 z-50 mx-auto max-w-sm rounded-[1.6rem] px-4 py-3"
     >
       <div className="flex items-center gap-3">
         <img src="/icon-192.png" alt="" width={40} height={40} className="rounded-xl" />

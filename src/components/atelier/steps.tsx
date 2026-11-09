@@ -18,6 +18,7 @@ export function StepsScreen({
   kit,
   summary,
   photo,
+  saved,
 }: {
   situation: SituationId;
   card: ReferenceCard;
@@ -32,6 +33,8 @@ export function StepsScreen({
   summary: string;
   /** Su foto en JPEG si la hizo con la cámara, para adjuntarla a la reseña. */
   photo?: string;
+  /** El look ya quedó guardado en «Mis looks». */
+  saved?: boolean;
 }) {
   const { t } = useLang();
   const option = optionById(situation, card.id as OptionId);
@@ -69,6 +72,11 @@ export function StepsScreen({
             className="w-full rounded-2xl border border-line object-cover"
           />
           <p className="mt-3 text-sm text-muted">{t("steps.reference")}</p>
+          {saved ? (
+            <p className="mt-2 text-sm font-medium text-blush" role="status">
+              ✓ {t("saved.done")}
+            </p>
+          ) : null}
         </div>
         <div>
           {error ? (
@@ -105,20 +113,7 @@ export function StepsScreen({
                   const hers = kit
                     ? hersForZone({ age: "joven", tastes: [], note, skin, kit }, step.zone)
                     : "";
-                  return hers ? (
-                    <p className="mt-3 text-sm">{t("steps.yours", { hers })}</p>
-                  ) : (
-                    <>
-                      <p className="mt-3 text-sm text-muted">{t("steps.missing")}</p>
-                      <p className="text-sm">
-                        {step.product.brandName} · {step.product.name}
-                      </p>
-                      <p className="text-sm text-muted tabular-nums">
-                        {step.product.shade} · {step.product.finish} ·{" "}
-                        {Math.round(step.product.priceEur)} €
-                      </p>
-                    </>
-                  );
+                  return hers ? <p className="mt-3 text-sm">{t("steps.yours", { hers })}</p> : null;
                 })()}
               </li>
             ))}

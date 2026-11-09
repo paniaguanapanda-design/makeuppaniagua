@@ -5,9 +5,11 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
+import { Globe } from "lucide-react";
 
 /** Idiomas de NEUSTA. Lo que llega al equipo (correos, /resenas) queda en español. */
 export const LANGS = ["es", "en", "it"] as const;
@@ -196,14 +198,13 @@ const es: Dict = {
   "steps.skinPhoto": "En la foto, no es un diagnóstico",
   "steps.skinYours": "Tu piel",
   "steps.reference": "Referencia de cómo quedaría. No es un filtro puesto encima de la foto.",
-  "steps.retry": "Reintentar los productos",
-  "steps.stylist": "Estilista",
-  "steps.searching": "Buscando los productos de esta opción.",
-  "steps.title": "Pasos y productos",
+  "steps.retry": "Reintentar el tutorial",
+  "steps.stylist": "Te guía",
+  "steps.searching": "Preparando tu tutorial…",
+  "steps.title": "Tutorial paso a paso",
   "steps.yours": "Usa lo que ya tienes: {hers}",
   "steps.missing": "Si te falta, uno de droguería:",
-  "steps.note":
-    "El catálogo no vende ni reserva estilistas. El orden es para repetir la referencia en la piel.",
+  "steps.note": "Sigue los pasos en este orden frente a un espejo con buena luz.",
   "zone.base": "Base",
   "zone.cejas": "Cejas",
   "zone.contorno": "Contorno",
@@ -304,6 +305,26 @@ const es: Dict = {
     "En Safari, toca el botón Compartir (el cuadrado con la flecha) y elige «Añadir a pantalla de inicio».",
   "install.other":
     "Abre el menú del navegador (los tres puntos) y elige «Instalar app» o «Añadir a pantalla de inicio».",
+  "nav.home": "Inicio",
+  "nav.create": "Crear look",
+  "nav.looks": "Mis looks",
+  "nav.lang": "Idioma",
+  "nav.account": "Cuenta",
+  "saved.eyebrow": "Tu colección",
+  "saved.title1": "Mis",
+  "saved.title2": "looks",
+  "saved.sub": "Los looks que eliges se guardan aquí para repetirlos o compartirlos.",
+  "saved.empty": "Todavía no has guardado ningún look.",
+  "saved.emptyBtn": "Crear mi primer look",
+  "saved.loading": "Cargando tus looks…",
+  "saved.error": "No se pudieron cargar tus looks.",
+  "saved.share": "Compartir",
+  "saved.shareText": "Mi look {look} para {occasion}, hecho con NEUSTA ✨",
+  "saved.delete": "Borrar",
+  "saved.deleteConfirm": "¿Borrar este look de tu colección?",
+  "saved.done": "Guardado en Mis looks",
+  "saved.tutorial": "Ver tutorial",
+  "saved.downloaded": "Imagen descargada",
 };
 
 const en: Dict = {
@@ -487,14 +508,13 @@ const en: Dict = {
   "steps.skinPhoto": "In the photo, not a diagnosis",
   "steps.skinYours": "Your skin",
   "steps.reference": "A reference of how it would look. It isn't a filter on top of the photo.",
-  "steps.retry": "Retry the products",
-  "steps.stylist": "Stylist",
-  "steps.searching": "Finding the products for this option.",
-  "steps.title": "Steps and products",
+  "steps.retry": "Retry the tutorial",
+  "steps.stylist": "Your guide",
+  "steps.searching": "Preparing your tutorial…",
+  "steps.title": "Step-by-step tutorial",
   "steps.yours": "Use what you already have: {hers}",
   "steps.missing": "If you don't have it, a drugstore option:",
-  "steps.note":
-    "The catalog doesn't sell products or book stylists. The order helps you recreate the reference on your skin.",
+  "steps.note": "Follow the steps in this order in front of a mirror with good light.",
   "zone.base": "Base",
   "zone.cejas": "Brows",
   "zone.contorno": "Contour",
@@ -595,6 +615,26 @@ const en: Dict = {
     "In Safari, tap the Share button (the square with the arrow) and choose “Add to Home Screen”.",
   "install.other":
     "Open the browser menu (the three dots) and choose “Install app” or “Add to Home screen”.",
+  "nav.home": "Home",
+  "nav.create": "Create look",
+  "nav.looks": "My looks",
+  "nav.lang": "Language",
+  "nav.account": "Account",
+  "saved.eyebrow": "Your collection",
+  "saved.title1": "My",
+  "saved.title2": "looks",
+  "saved.sub": "The looks you choose are saved here so you can recreate or share them.",
+  "saved.empty": "You haven't saved any looks yet.",
+  "saved.emptyBtn": "Create my first look",
+  "saved.loading": "Loading your looks…",
+  "saved.error": "Couldn't load your looks.",
+  "saved.share": "Share",
+  "saved.shareText": "My {look} look for {occasion}, made with NEUSTA ✨",
+  "saved.delete": "Delete",
+  "saved.deleteConfirm": "Delete this look from your collection?",
+  "saved.done": "Saved to My looks",
+  "saved.tutorial": "View tutorial",
+  "saved.downloaded": "Image downloaded",
 };
 
 const it: Dict = {
@@ -781,14 +821,13 @@ const it: Dict = {
   "steps.skinPhoto": "Nella foto, non è una diagnosi",
   "steps.skinYours": "La tua pelle",
   "steps.reference": "Un riferimento di come starebbe. Non è un filtro sopra la foto.",
-  "steps.retry": "Riprova i prodotti",
-  "steps.stylist": "Truccatore",
-  "steps.searching": "Cerco i prodotti per questa opzione.",
-  "steps.title": "Passaggi e prodotti",
+  "steps.retry": "Riprova il tutorial",
+  "steps.stylist": "Ti guida",
+  "steps.searching": "Preparo il tuo tutorial…",
+  "steps.title": "Tutorial passo dopo passo",
   "steps.yours": "Usa quello che hai già: {hers}",
   "steps.missing": "Se ti manca, uno da profumeria:",
-  "steps.note":
-    "Il catalogo non vende prodotti né prenota truccatori. L'ordine serve a ricreare il riferimento sulla pelle.",
+  "steps.note": "Segui i passaggi in quest'ordine davanti a uno specchio con buona luce.",
   "zone.base": "Base",
   "zone.cejas": "Sopracciglia",
   "zone.contorno": "Contouring",
@@ -889,6 +928,26 @@ const it: Dict = {
     "In Safari, tocca il pulsante Condividi (il quadrato con la freccia) e scegli «Aggiungi alla schermata Home».",
   "install.other":
     "Apri il menu del browser (i tre puntini) e scegli «Installa app» o «Aggiungi alla schermata Home».",
+  "nav.home": "Home",
+  "nav.create": "Crea look",
+  "nav.looks": "I miei look",
+  "nav.lang": "Lingua",
+  "nav.account": "Account",
+  "saved.eyebrow": "La tua collezione",
+  "saved.title1": "I miei",
+  "saved.title2": "look",
+  "saved.sub": "I look che scegli vengono salvati qui per rifarli o condividerli.",
+  "saved.empty": "Non hai ancora salvato nessun look.",
+  "saved.emptyBtn": "Crea il mio primo look",
+  "saved.loading": "Carico i tuoi look…",
+  "saved.error": "Impossibile caricare i tuoi look.",
+  "saved.share": "Condividi",
+  "saved.shareText": "Il mio look {look} per {occasion}, fatto con NEUSTA ✨",
+  "saved.delete": "Elimina",
+  "saved.deleteConfirm": "Eliminare questo look dalla tua collezione?",
+  "saved.done": "Salvato in I miei look",
+  "saved.tutorial": "Vedi tutorial",
+  "saved.downloaded": "Immagine scaricata",
 };
 
 export const DICTS: Record<Lang, Dict> = { es, en, it };
@@ -957,29 +1016,72 @@ export function useLang() {
   return useContext(Ctx);
 }
 
-/** Selector compacto ES · EN · IT. */
-export function LanguageSwitch({ className = "" }: { className?: string }) {
+/** Globo 🌐 que despliega ES · EN · IT. `up` lo abre hacia arriba (barra inferior). */
+export function LanguageSwitch({
+  className = "",
+  placement = "down",
+  children,
+}: {
+  className?: string;
+  placement?: "up" | "down";
+  /** Contenido del botón; por defecto, el globo con el idioma actual. */
+  children?: ReactNode;
+}) {
   const { lang, setLang, t } = useLang();
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const close = (event: Event) => {
+      if (!ref.current?.contains(event.target as Node)) setOpen(false);
+    };
+    const onKey = (event: KeyboardEvent) => event.key === "Escape" && setOpen(false);
+    document.addEventListener("pointerdown", close);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("pointerdown", close);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
   return (
-    <div
-      role="group"
-      aria-label={t("common.language")}
-      className={`flex items-center gap-0.5 ${className}`}
-    >
-      {LANGS.map((code) => (
-        <button
-          key={code}
-          type="button"
-          onClick={() => setLang(code)}
-          aria-pressed={lang === code}
-          aria-label={DICTS[code]["lang.name"]}
-          className={`min-h-9 min-w-9 rounded-full px-1.5 text-[12px] font-semibold uppercase tracking-wide transition-colors ${
-            lang === code ? "bg-blush text-white" : "text-muted"
-          }`}
-        >
-          {code}
-        </button>
-      ))}
+    <div ref={ref} className={`lang-menu relative ${className}`}>
+      <button
+        type="button"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label={`${t("common.language")}: ${DICTS[lang]["lang.name"]}`}
+        onClick={() => setOpen((value) => !value)}
+        className="lang-trigger"
+      >
+        {children ?? (
+          <>
+            <Globe className="size-[18px]" strokeWidth={1.6} aria-hidden="true" />
+            <span>{lang.toUpperCase()}</span>
+          </>
+        )}
+      </button>
+      {open ? (
+        <div role="menu" className={`lang-pop glass ${placement === "up" ? "is-up" : "is-down"}`}>
+          {LANGS.map((code) => (
+            <button
+              key={code}
+              type="button"
+              role="menuitemradio"
+              aria-checked={lang === code}
+              onClick={() => {
+                setLang(code);
+                setOpen(false);
+              }}
+              className={lang === code ? "is-on" : ""}
+            >
+              <b>{code.toUpperCase()}</b>
+              <span>{DICTS[code]["lang.name"]}</span>
+            </button>
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }

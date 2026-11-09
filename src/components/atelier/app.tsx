@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { KitScreen, type KitDraft } from "@/components/atelier/kit";
-import { DirectoryScreen, HomeScreen, OccasionScreen } from "@/components/atelier/screens";
+import { HomeScreen, OccasionScreen } from "@/components/atelier/screens";
+import { BottomNav, type NavTab, type NavVariant } from "@/components/atelier/bottom-nav";
+import { MyLooksScreen } from "@/components/atelier/my-looks";
+import { saveLook } from "@/lib/makeup/saved";
+import { optionById, visibleZones, type OptionId } from "@/lib/makeup/references";
 import { OptionsScreen } from "@/components/atelier/options";
 import { ScannerScreen } from "@/components/atelier/scanner";
 import { StepsScreen } from "@/components/atelier/steps";
@@ -8,24 +12,60 @@ import { referenceLooks, type ReferenceCard, type ReferenceResult } from "@/lib/
 import { aiLook } from "@/lib/makeup/ai-look";
 import { renderCard } from "@/lib/makeup/preview";
 import { noteZones, type PersonBrief } from "@/lib/makeup/profile";
-import { getDirectory, recommendLook } from "@/lib/makeup/server";
-import type { Capture, Directory, LookPlan, SituationId } from "@/lib/makeup/types";
-import { ArrowLeft, LogOut, Users } from "lucide-react";
+import { recommendLook } from "@/lib/makeup/server";
+import type { Capture, LookPlan, SituationId } from "@/lib/makeup/types";
 import { analysisLine, analyzeFace, type FaceAnalysis } from "@/lib/makeup/analysis";
 import { jpegDataUrl } from "@/lib/makeup/photo";
-import { LanguageSwitch, useLang } from "@/lib/i18n";
+import { useLang } from "@/lib/i18n";
 import { signOut } from "@/lib/auth/client";
 
 const referenceJobs = new Map<string, Promise<ReferenceResult>>();
 
-type View = "home" | "occasion" | "kit" | "scan" | "options" | "steps" | "directory";
+type View = "home" | "occasion" | "kit" | "scan" | "options" | "steps" | "looks";
+
+const NAV_VARIANTS: NavVariant[] = ["petalo", "arcoiris", "joya"];
+
+/** Estilo de la barra inferior. Mientras se elige, se prueba con ?nav=petalo|arcoiris|joya. */
+function navVariant(): NavVariant {
+  try {
+    const wanted = new URLSearchParams(window.location.search).get("nav");
+    if (wanted && (NAV_VARIANTS as string[]).includes(wanted)) {
+      window.localStorage.setItem("neusta-nav", wanted);
+      return wanted as NavVariant;
+    }
+    const saved = window.localStorage.getItem("neusta-nav");
+    if (saved && (NAV_VARIANTS as string[]).includes(saved)) return saved as NavVariant;
+  } catch {
+    /* sin almacenamiento */
+  }
+  return "petalo";
+}
+
+/** Reduce la foto del look para guardarla en la cuenta sin que pese demasiado. */
+async function compactJpeg(src: string): Promise<string> {
+  const img = new Image();
+  img.src = src;
+  await img.decode();
+  const scale = Math.min(1, 720 / img.naturalWidth);
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.round(img.naturalWidth * scale);
+  canvas.height = Math.round(img.naturalHeight * scale);
+  canvas.getContext("2d")?.drawImage(img, 0, 0, canvas.width, canvas.height);
+  for (const quality of [0.82, 0.7, 0.55]) {
+    const out = canvas.toDataURL("image/jpeg", quality);
+    if (out.length < 880_000) return out;
+  }
+  return canvas.toDataURL("image/jpeg", 0.4);
+}
 
 export function AtelierApp() {
   const [view, setView] = useState<View>("home");
   const [situation, setSituation] = useState<SituationId | null>(null);
   const [capture, setCapture] = useState<Capture | null>(null);
-  const [directory, setDirectory] = useState<Directory | null>(null);
-  const [catalogError, setCatalogError] = useState<string | null>(null);
+  const [variant, setVariant] = useState<NavVariant>("petalo");
+  const [looksKey, setLooksKey] = useState(0);
+  const savedIds = useRef(new Map<string, string>());
+  const [savedNote, setSavedNote] = useState(false);
   const [plan, setPlan] = useState<LookPlan | null>(null);
   const [planError, setPlanError] = useState<string | null>(null);
   const [cards, setCards] = useState<ReferenceCard[] | null>(null);
@@ -48,18 +88,6 @@ export function AtelierApp() {
   const analysisSkin = analysis ? analysisLine(analysis) : "";
   const shotRef = useRef(0);
   shotRef.current = shot;
-
-  const loadDirectory = useCallback(() => {
-    setCatalogError(null);
-    getDirectory()
-      .then((data) => {
-        setDirectory(data);
-        setCatalogError(null);
-      })
-      .catch((error: unknown) => {
-        setCatalogError(error instanceof Error ? error.message : "No pude abrir el catálogo.");
-      });
-  }, []);
 
   const loadPlan = useCallback(() => {
     if (!situation) return;
@@ -90,8 +118,36 @@ export function AtelierApp() {
   }, [situation, capture, profile, seen.skin, analysis, analysisSkin, lang]);
 
   useEffect(() => {
-    loadDirectory();
-  }, [loadDirectory]);
+    setVariant(navVariant());
+  }, []);
+
+  // El look elegido se guarda en su cuenta (y se actualiza al llegar la IA o el tutorial).
+  useEffect(() => {
+    if (!chosen || !situation) return;
+    const id = savedIds.current.get(`${shot}:${chosen.id}`);
+    if (!id) return;
+    const option = optionById(situation, chosen.id as OptionId);
+    const zones = visibleZones(option, noteZones(profile?.note ?? ""));
+    const steps = (plan?.steps ?? [])
+      .filter((step) => zones.includes(step.zone))
+      .map((step) => ({
+        zone: step.zone,
+        title: step.title.slice(0, 120),
+        instruction: step.instruction.slice(0, 900),
+      }));
+    let alive = true;
+    compactJpeg(chosen.imageUrl)
+      .then((image) =>
+        saveLook({
+          data: { id, situation, look: chosen.id as OptionId, image, steps: steps.slice(0, 12) },
+        }),
+      )
+      .then(() => alive && setSavedNote(true))
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+    };
+  }, [chosen, plan, situation, shot, profile]);
 
   useEffect(() => {
     if (view === "steps") loadPlan();
@@ -166,6 +222,7 @@ export function AtelierApp() {
             (prev) =>
               prev?.map((c) => (c.id === card.id ? { ...c, imageUrl: res.imageUrl } : c)) ?? prev,
           );
+          setChosen((prev) => (prev?.id === card.id ? { ...prev, imageUrl: res.imageUrl } : prev));
         })
         .catch((error: unknown) => {
           setAiState((prev) => ({ ...prev, [id]: "failed" }));
@@ -219,7 +276,7 @@ export function AtelierApp() {
       const { situation: s, capture: c, chosen: ch } = ready.current;
       const ok =
         wanted === "home" ||
-        wanted === "directory" ||
+        wanted === "looks" ||
         wanted === "occasion" ||
         ((wanted === "kit" || wanted === "scan") && Boolean(s)) ||
         (wanted === "options" && Boolean(s && c)) ||
@@ -234,63 +291,23 @@ export function AtelierApp() {
     window.scrollTo({ top: 0 });
   }, [view]);
 
-  function back() {
-    const state = window.history.state as { neusta?: View } | null;
-    if (state?.neusta && state.neusta !== "home") window.history.back();
-    else setView("home");
-  }
+  const activeTab: NavTab = view === "home" ? "home" : view === "looks" ? "looks" : "create";
 
-  function openDirectory() {
-    go("directory");
+  function navigate(tab: NavTab) {
+    if (tab === "home") go("home");
+    else if (tab === "create") go("occasion");
+    else {
+      setLooksKey((value) => value + 1);
+      go("looks");
+    }
   }
 
   return (
     <div className="app-shell">
-      <header className="sticky top-0 z-20 border-b border-line bg-surface/90 shadow-[0_8px_24px_rgba(131,24,67,0.06)] backdrop-blur-md">
-        <div className="h-0.5 bg-blush" />
-        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
-          <button
-            type="button"
-            onClick={() => go("home")}
-            className="font-display text-xl tracking-wide"
-          >
-            NEUSTA
-          </button>
-          <nav className="flex items-center gap-1" aria-label="NEUSTA">
-            <LanguageSwitch />
-            {view !== "home" ? (
-              <button
-                type="button"
-                onClick={back}
-                className="inline-flex min-h-11 items-center gap-1 px-3 text-sm"
-              >
-                <ArrowLeft className="size-4" aria-hidden="true" />
-                {t("common.back")}
-              </button>
-            ) : null}
-            <button
-              type="button"
-              onClick={openDirectory}
-              aria-label={t("common.stylists")}
-              className="inline-grid min-h-11 min-w-11 place-items-center rounded-full"
-            >
-              <Users className="size-5" strokeWidth={1.6} aria-hidden="true" />
-            </button>
-            {view === "home" ? (
-              <button
-                type="button"
-                onClick={() => {
-                  setSignOutError("");
-                  void signOut().catch(() => setSignOutError(t("common.signOutError")));
-                }}
-                aria-label={t("common.signOut")}
-                className="inline-grid min-h-11 min-w-11 place-items-center rounded-full"
-              >
-                <LogOut className="size-5" strokeWidth={1.6} aria-hidden="true" />
-              </button>
-            ) : null}
-          </nav>
-        </div>
+      <header className="app-title-bar sticky top-0 z-20">
+        <button type="button" onClick={() => go("home")} className="app-title">
+          NEUSTA
+        </button>
       </header>
       {signOutError && (
         <p role="alert" className="px-4 py-2 text-sm">
@@ -375,6 +392,9 @@ export function AtelierApp() {
             setShot((value) => value + 1);
           }}
           onChoose={(card) => {
+            const key = `${shot}:${card.id}`;
+            if (!savedIds.current.has(key)) savedIds.current.set(key, crypto.randomUUID());
+            setSavedNote(false);
             setChosen(card);
             ready.current.chosen = card;
             go("steps");
@@ -395,11 +415,19 @@ export function AtelierApp() {
           kit={profile?.kit ?? null}
           summary={profile ? profile.tastes.map((id) => t(`taste.${id}`)).join(", ") : ""}
           photo={capture?.source === "camera" ? jpegDataUrl(capture.photo) : undefined}
+          saved={savedNote}
         />
       ) : null}
-      {view === "directory" ? (
-        <DirectoryScreen directory={directory} error={catalogError} onRetry={loadDirectory} />
-      ) : null}
+      {view === "looks" ? <MyLooksScreen key={looksKey} onCreate={() => go("occasion")} /> : null}
+      <BottomNav
+        active={activeTab}
+        variant={variant}
+        onNavigate={navigate}
+        onSignOut={() => {
+          setSignOutError("");
+          void signOut().catch(() => setSignOutError(t("common.signOutError")));
+        }}
+      />
     </div>
   );
 }
