@@ -830,30 +830,72 @@ h2 em {
   animation: none;
 }
 
-/* ---------- Barra de navegación inferior (glassmorphism) ---------- */
+/* ---------- Barra de navegación inferior: fina, cristal, con movimiento ---------- */
 .bottom-nav {
+  --spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --nav-tint: #c06a7c;
+  --nav-x: 0;
   position: fixed;
   z-index: 40;
   left: 50%;
   bottom: 0;
   width: min(100%, 430px);
   transform: translateX(-50%);
-  padding: 0 0.75rem max(0.6rem, env(safe-area-inset-bottom));
   pointer-events: none;
+  animation: nav-rise 520ms var(--spring) both;
+}
+.bottom-nav[data-active="home"] {
+  --nav-x: 0;
+  --nav-tint: #c06a7c;
+}
+.bottom-nav[data-active="create"] {
+  --nav-x: 1;
+  --nav-tint: #d0805f;
+}
+.bottom-nav[data-active="looks"] {
+  --nav-x: 2;
+  --nav-tint: #a8475f;
 }
 .bottom-nav-inner {
   position: relative;
   display: grid;
   grid-template-columns: repeat(5, 1fr);
-  align-items: end;
+  align-items: center;
   pointer-events: auto;
-  border: 1px solid rgb(255 255 255 / 80%);
-  background: linear-gradient(135deg, rgb(255 246 244 / 70%), rgb(250 225 230 / 58%));
+  border-top: 1px solid rgb(255 255 255 / 75%);
+  border-radius: 1.1rem 1.1rem 0 0;
+  padding: 0.15rem 0.4rem max(0.15rem, env(safe-area-inset-bottom));
+  background: linear-gradient(180deg, rgb(255 250 248 / 62%), rgb(252 236 238 / 52%));
   box-shadow:
-    0 14px 34px rgb(131 24 67 / 14%),
-    inset 0 1px 0 rgb(255 255 255 / 85%);
-  -webkit-backdrop-filter: blur(22px) saturate(170%);
-  backdrop-filter: blur(22px) saturate(170%);
+    0 -6px 22px rgb(131 24 67 / 7%),
+    inset 0 1px 0 rgb(255 255 255 / 80%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  backdrop-filter: blur(24px) saturate(180%);
+}
+/* Línea de luz que viaja a la pestaña activa y cambia de color. */
+.nav-glow {
+  position: absolute;
+  top: -1px;
+  left: calc(0.4rem + (100% - 0.8rem) / 5 * var(--nav-x));
+  width: calc((100% - 0.8rem) / 5);
+  height: 2px;
+  display: flex;
+  justify-content: center;
+  transition: left 480ms var(--spring);
+}
+.nav-glow::before {
+  content: "";
+  width: 1.6rem;
+  height: 2px;
+  border-radius: 9999px;
+  background: var(--nav-tint);
+  box-shadow: 0 0 10px 1px var(--nav-tint);
+  transition:
+    background 300ms ease,
+    box-shadow 300ms ease;
+}
+.bottom-nav[data-active="none"] .nav-glow {
+  opacity: 0;
 }
 .nav-item {
   display: flex;
@@ -863,138 +905,159 @@ h2 em {
 .bottom-nav .nav-item.lang-menu > button,
 .bottom-nav button.nav-item {
   display: flex;
-  min-height: 3.6rem;
+  min-height: 3.35rem;
   width: 100%;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 0.15rem;
-  padding: 0.35rem 0;
-  font-size: 10.5px;
+  gap: 0.1rem;
+  padding: 0.2rem 0;
+  font-size: 10px;
   font-weight: 500;
-  letter-spacing: 0.01em;
+  letter-spacing: 0.02em;
   color: var(--color-muted);
   -webkit-tap-highlight-color: transparent;
 }
 .nav-bubble {
+  position: relative;
   display: grid;
-  width: 2.35rem;
-  height: 2.35rem;
+  width: 1.95rem;
+  height: 1.95rem;
   place-items: center;
   border-radius: 9999px;
   transition:
-    transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1),
-    background 220ms ease,
-    color 220ms ease;
+    transform 380ms var(--spring),
+    box-shadow 300ms ease,
+    background 300ms ease;
 }
 .nav-icon {
-  width: 21px;
-  height: 21px;
+  width: 18px;
+  height: 18px;
+  transition: transform 380ms var(--spring);
 }
 .nav-label {
   line-height: 1.1;
   white-space: nowrap;
-}
-.bottom-nav .is-active {
-  color: var(--color-accent);
-  font-weight: 600;
+  transition:
+    color 250ms ease,
+    letter-spacing 300ms ease;
 }
 .bottom-nav button:active .nav-bubble {
-  transform: scale(0.92);
+  transform: scale(0.86);
+  transition-duration: 120ms;
 }
-
-/* A · Pétalo: píldora flotante; la pestaña activa florece en rosa. */
-.nav-petalo .bottom-nav-inner {
-  border-radius: 1.75rem;
-  padding: 0.3rem;
-}
-.nav-petalo .nav-bubble {
-  color: #9b7480;
-}
-.nav-petalo .is-active .nav-bubble {
-  color: #fff;
-  background: linear-gradient(135deg, #f0a9b9, #b4546c 70%);
-  box-shadow: 0 6px 16px rgb(180 84 108 / 38%);
-  transform: translateY(-2px);
-}
-
-/* B · Arcoíris: barra completa; cada icono con su color de maquillaje. */
-.nav-arcoiris {
-  padding: 0;
-}
-.nav-arcoiris .bottom-nav-inner {
-  border-radius: 1.5rem 1.5rem 0 0;
-  border-bottom: 0;
-  padding: 0.25rem 0.5rem max(0.35rem, env(safe-area-inset-bottom));
-}
-.nav-arcoiris .nav-bubble {
-  width: 2.2rem;
-  height: 2.2rem;
-}
-.nav-arcoiris .nav-home .nav-bubble {
+/* Colores de maquillaje: rosa, melocotón, frambuesa, lila y oro. */
+.nav-home .nav-bubble {
   color: #c06a7c;
-  background: rgb(240 169 185 / 26%);
+  background: rgb(240 169 185 / 22%);
 }
-.nav-arcoiris .nav-create .nav-bubble {
-  color: #c9785b;
-  background: rgb(240 178 148 / 28%);
+.nav-create .nav-bubble {
+  color: #d0805f;
+  background: rgb(244 184 156 / 26%);
 }
-.nav-arcoiris .nav-looks .nav-bubble {
+.nav-looks .nav-bubble {
   color: #a8475f;
-  background: rgb(214 112 140 / 22%);
+  background: rgb(214 112 140 / 18%);
 }
-.nav-arcoiris .nav-lang .nav-bubble {
+.nav-lang .nav-bubble {
   color: #8a6bb0;
-  background: rgb(190 168 226 / 30%);
+  background: rgb(190 168 226 / 26%);
 }
-.nav-arcoiris .nav-account .nav-bubble {
+.nav-account .nav-bubble {
   color: #a8874f;
-  background: rgb(222 196 140 / 30%);
+  background: rgb(222 196 140 / 26%);
 }
-.nav-arcoiris .is-active .nav-bubble {
+.bottom-nav .is-active {
+  font-weight: 600;
+}
+.bottom-nav .is-active .nav-label {
+  color: var(--nav-tint);
+  letter-spacing: 0.05em;
+}
+.bottom-nav .is-active .nav-bubble {
+  transform: translateY(-2px);
   box-shadow:
-    0 0 0 2px rgb(255 255 255 / 90%),
-    0 6px 14px rgb(131 24 67 / 18%);
+    0 0 0 1.5px rgb(255 255 255 / 95%),
+    0 6px 14px -2px var(--nav-tint);
+  animation: nav-pop 520ms var(--spring);
+}
+.nav-home.is-active .nav-icon {
+  animation: nav-tilt 620ms ease;
+}
+.nav-create.is-active .nav-icon {
+  animation: nav-sweep 700ms ease;
+}
+.nav-looks.is-active .nav-icon {
+  animation: nav-lift 620ms var(--spring);
+}
+/* Destello suave al activar. */
+.bottom-nav .is-active .nav-bubble::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  border: 1.5px solid var(--nav-tint);
+  opacity: 0;
+  animation: nav-ring 650ms ease-out;
+}
+.lang-menu[data-open] .nav-icon,
+.nav-lang button[aria-expanded="true"] .nav-icon {
+  transform: rotate(180deg);
+}
+.nav-account button[aria-expanded="true"] .nav-bubble,
+.nav-lang button[aria-expanded="true"] .nav-bubble {
   transform: translateY(-2px);
 }
-.nav-arcoiris .is-active .nav-label::after {
-  content: "";
-  display: block;
-  width: 4px;
-  height: 4px;
-  margin: 2px auto 0;
-  border-radius: 9999px;
-  background: currentColor;
+@keyframes nav-rise {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(100%);
+  }
 }
-
-/* C · Joya: píldora con la brocha en el centro, en relieve. */
-.nav-joya .bottom-nav-inner {
-  border-radius: 1.75rem;
-  padding: 0.3rem 0.3rem 0.3rem;
+@keyframes nav-pop {
+  0% {
+    transform: translateY(0) scale(0.9);
+  }
+  60% {
+    transform: translateY(-4px) scale(1.08);
+  }
+  100% {
+    transform: translateY(-2px) scale(1);
+  }
 }
-.nav-joya .nav-bubble {
-  color: #b4546c;
+@keyframes nav-ring {
+  0% {
+    opacity: 0.7;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.6);
+  }
 }
-.nav-joya .is-active .nav-bubble {
-  background: rgb(240 169 185 / 30%);
+@keyframes nav-tilt {
+  30% {
+    transform: rotate(-14deg);
+  }
+  65% {
+    transform: rotate(8deg);
+  }
 }
-.nav-joya .nav-create .nav-bubble {
-  width: 3.4rem;
-  height: 3.4rem;
-  margin-top: -1.6rem;
-  color: #fff;
-  background:
-    radial-gradient(circle at 30% 25%, rgb(255 255 255 / 55%), transparent 45%),
-    linear-gradient(135deg, #f3b0a0, #d7708a 45%, #9b3d58);
-  border: 3px solid rgb(255 248 246 / 92%);
-  box-shadow: 0 10px 22px rgb(155 61 88 / 40%);
+@keyframes nav-sweep {
+  25% {
+    transform: rotate(-18deg) translateX(-1px);
+  }
+  55% {
+    transform: rotate(12deg) translateX(1px);
+  }
+  80% {
+    transform: rotate(-4deg);
+  }
 }
-.nav-joya .nav-create .nav-icon {
-  width: 24px;
-  height: 24px;
-}
-.nav-joya .nav-create.is-active .nav-bubble {
-  transform: translateY(-2px) rotate(-8deg);
+@keyframes nav-lift {
+  40% {
+    transform: translateY(-3px) scaleY(1.1);
+  }
 }
 
 /* Mis looks */
@@ -1027,9 +1090,13 @@ h2 em {
   }
 }
 @media (prefers-reduced-motion: reduce) {
+  .bottom-nav,
+  .nav-glow,
   .nav-bubble,
+  .nav-icon,
+  .nav-bubble::after,
   .lang-pop {
-    transition: none;
-    animation: none;
+    transition: none !important;
+    animation: none !important;
   }
 }

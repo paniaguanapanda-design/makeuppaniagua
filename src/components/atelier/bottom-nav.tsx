@@ -3,7 +3,6 @@ import { CircleUserRound, Globe, LogOut } from "lucide-react";
 import { LanguageSwitch, useLang } from "@/lib/i18n";
 
 export type NavTab = "home" | "create" | "looks";
-export type NavVariant = "petalo" | "arcoiris" | "joya";
 
 type IconProps = { className?: string };
 
@@ -59,12 +58,10 @@ type Item = { id: string; label: string; icon: ReactNode; active?: boolean; onCl
  */
 export function BottomNav({
   active,
-  variant,
   onNavigate,
   onSignOut,
 }: {
   active: NavTab | null;
-  variant: NavVariant;
   onNavigate: (tab: NavTab) => void;
   onSignOut: () => void;
 }) {
@@ -74,9 +71,9 @@ export function BottomNav({
 
   useEffect(() => {
     const root = document.documentElement;
-    root.style.setProperty("--nav-h", variant === "arcoiris" ? "4.75rem" : "5.5rem");
+    root.style.setProperty("--nav-h", "4rem");
     return () => root.style.setProperty("--nav-h", "0px");
-  }, [variant]);
+  }, []);
 
   useEffect(() => {
     if (!account) return;
@@ -125,8 +122,10 @@ export function BottomNav({
   );
 
   return (
-    <nav className={`bottom-nav nav-${variant}`} aria-label="NEUSTA">
+    <nav className="bottom-nav" aria-label="NEUSTA" data-active={active ?? "none"}>
       <div className="bottom-nav-inner">
+        {/* Indicador que se desliza hasta la sección activa. */}
+        <span className="nav-glow" aria-hidden="true" />
         {button(tabs[0])}
         {button(tabs[1])}
         {button(tabs[2])}

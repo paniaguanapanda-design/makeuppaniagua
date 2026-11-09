@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { KitScreen, type KitDraft } from "@/components/atelier/kit";
 import { HomeScreen, OccasionScreen } from "@/components/atelier/screens";
-import { BottomNav, type NavTab, type NavVariant } from "@/components/atelier/bottom-nav";
+import { BottomNav, type NavTab } from "@/components/atelier/bottom-nav";
 import { MyLooksScreen } from "@/components/atelier/my-looks";
 import { saveLook } from "@/lib/makeup/saved";
 import { optionById, visibleZones, type OptionId } from "@/lib/makeup/references";
@@ -22,24 +22,6 @@ import { signOut } from "@/lib/auth/client";
 const referenceJobs = new Map<string, Promise<ReferenceResult>>();
 
 type View = "home" | "occasion" | "kit" | "scan" | "options" | "steps" | "looks";
-
-const NAV_VARIANTS: NavVariant[] = ["petalo", "arcoiris", "joya"];
-
-/** Estilo de la barra inferior. Mientras se elige, se prueba con ?nav=petalo|arcoiris|joya. */
-function navVariant(): NavVariant {
-  try {
-    const wanted = new URLSearchParams(window.location.search).get("nav");
-    if (wanted && (NAV_VARIANTS as string[]).includes(wanted)) {
-      window.localStorage.setItem("neusta-nav", wanted);
-      return wanted as NavVariant;
-    }
-    const saved = window.localStorage.getItem("neusta-nav");
-    if (saved && (NAV_VARIANTS as string[]).includes(saved)) return saved as NavVariant;
-  } catch {
-    /* sin almacenamiento */
-  }
-  return "petalo";
-}
 
 /** Reduce la foto del look para guardarla en la cuenta sin que pese demasiado. */
 async function compactJpeg(src: string): Promise<string> {
@@ -62,7 +44,6 @@ export function AtelierApp() {
   const [view, setView] = useState<View>("home");
   const [situation, setSituation] = useState<SituationId | null>(null);
   const [capture, setCapture] = useState<Capture | null>(null);
-  const [variant, setVariant] = useState<NavVariant>("petalo");
   const [looksKey, setLooksKey] = useState(0);
   const savedIds = useRef(new Map<string, string>());
   const [savedNote, setSavedNote] = useState(false);
@@ -116,10 +97,6 @@ export function AtelierApp() {
         setPlanError(error instanceof Error ? error.message : "No pude armar el look.");
       });
   }, [situation, capture, profile, seen.skin, analysis, analysisSkin, lang]);
-
-  useEffect(() => {
-    setVariant(navVariant());
-  }, []);
 
   // El look elegido se guarda en su cuenta (y se actualiza al llegar la IA o el tutorial).
   useEffect(() => {
@@ -421,7 +398,6 @@ export function AtelierApp() {
       {view === "looks" ? <MyLooksScreen key={looksKey} onCreate={() => go("occasion")} /> : null}
       <BottomNav
         active={activeTab}
-        variant={variant}
         onNavigate={navigate}
         onSignOut={() => {
           setSignOutError("");
