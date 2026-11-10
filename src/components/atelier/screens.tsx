@@ -61,8 +61,8 @@ export function OccasionScreen({ onPick }: { onPick: (id: SituationId) => void }
   return (
     <div className="mx-auto max-w-6xl px-5 pb-16 pt-9 text-center">
       <div className="dots" aria-hidden="true">
-        <i className="on" />
         <i />
+        <i className="on" />
         <i />
         <i />
       </div>

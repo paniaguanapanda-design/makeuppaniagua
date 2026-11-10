@@ -4,7 +4,7 @@ import { HomeScreen, OccasionScreen } from "@/components/atelier/screens";
 import { BottomNav, type NavTab } from "@/components/atelier/bottom-nav";
 import { MyLooksScreen } from "@/components/atelier/my-looks";
 import { saveLook } from "@/lib/makeup/saved";
-import { optionById, visibleZones, type OptionId } from "@/lib/makeup/references";
+import { OPTION_IDS, optionById, visibleZones, type OptionId } from "@/lib/makeup/references";
 import { OptionsScreen } from "@/components/atelier/options";
 import { ScannerScreen } from "@/components/atelier/scanner";
 import { StepsScreen } from "@/components/atelier/steps";
@@ -59,7 +59,8 @@ export function AtelierApp() {
   const [seen, setSeen] = useState({ skin: "", fromPhoto: false });
   const upgraded = useRef(new Set<string>());
   // Estado de la imagen con IA de cada tarjeta (clave: foto:look). Sin entrada = aún pendiente.
-  const [aiState, setAiState] = useState<Record<string, "done" | "failed">>({});
+  // Imagen de la IA por foto:ocasión:look. "" = falló (se usa el pintado local); sin entrada = en camino.
+  const [aiImages, setAiImages] = useState<Record<string, string>>({});
   const [aiNote, setAiNote] = useState("");
   const [signOutError, setSignOutError] = useState("");
   const { t, lang } = useLang();
@@ -168,50 +169,49 @@ export function AtelierApp() {
     };
   }, [view, shot, cards, cardsError, capture, situation, profile]);
 
-  // Con clave de Gemini, cada tarjeta se mejora con una foto editada por IA. Si falla, queda el pintado local.
+  // La IA empieza en cuanto hay foto y ocasión: trabaja mientras ella completa su perfil.
   useEffect(() => {
-    if (view !== "options" || !cards || !capture?.read || !situation) return;
+    if (view === "home" || view === "looks" || !capture?.read || !situation) return;
     const read = capture.read;
-    const skin = [profile?.skin, analysisSkin].filter(Boolean).join(". ").slice(0, 400);
-    const owned = noteZones(profile?.note ?? "");
     const jpeg = capture.photo.toDataURL("image/jpeg", 0.85);
-    for (const card of cards) {
-      const id = `${shot}:${card.id}`;
-      if (upgraded.current.has(id)) continue;
-      upgraded.current.add(id);
+    for (const optionId of OPTION_IDS) {
+      const key = `${shot}:${situation}:${optionId}`;
+      if (upgraded.current.has(key)) continue;
+      upgraded.current.add(key);
       aiLook({
         data: {
           situation,
-          optionId: card.id,
+          optionId,
           undertone: read.undertone,
           depth: read.depth,
           shape: read.shape,
-          owned,
+          owned: [],
           photo: jpeg,
-          skin: skin || undefined,
         },
       })
         .then((res) => {
-          if (shotRef.current !== shot) return;
           setAiNote("ok");
-          setAiState((prev) => ({ ...prev, [id]: "done" }));
-          setCards(
-            (prev) =>
-              prev?.map((c) => (c.id === card.id ? { ...c, imageUrl: res.imageUrl } : c)) ?? prev,
-          );
-          setChosen((prev) => (prev?.id === card.id ? { ...prev, imageUrl: res.imageUrl } : prev));
+          setAiImages((prev) => ({ ...prev, [key]: res.imageUrl }));
         })
         .catch((error: unknown) => {
-          setAiState((prev) => ({ ...prev, [id]: "failed" }));
+          setAiImages((prev) => ({ ...prev, [key]: "" }));
           if (shotRef.current === shot)
             setAiNote(error instanceof Error ? error.message.slice(0, 160) : "error");
         });
     }
-  }, [view, cards, capture, situation, profile, shot, analysisSkin]);
+  }, [view, capture, situation, shot]);
+
+  // Cada tarjeta enseña la imagen de la IA en cuanto llega; si la IA falló, el pintado del móvil.
+  const aiKey = (id: string) => `${shot}:${situation}:${id}`;
+  const shownCards =
+    cards?.map((card) => {
+      const url = aiImages[aiKey(card.id)];
+      return url ? { ...card, imageUrl: url } : card;
+    }) ?? null;
 
   // La maquilladora mira el rostro y la piel una vez por foto.
   useEffect(() => {
-    if (view !== "options" || !capture || analyzedShot.current === shot) return;
+    if (view === "home" || view === "looks" || !capture || analyzedShot.current === shot) return;
     analyzedShot.current = shot;
     setAnalysis(null);
     setAnalyzing(true);
@@ -254,8 +254,9 @@ export function AtelierApp() {
       const ok =
         wanted === "home" ||
         wanted === "looks" ||
-        wanted === "occasion" ||
-        ((wanted === "kit" || wanted === "scan") && Boolean(s)) ||
+        wanted === "scan" ||
+        (wanted === "occasion" && Boolean(c)) ||
+        (wanted === "kit" && Boolean(s && c)) ||
         (wanted === "options" && Boolean(s && c)) ||
         (wanted === "steps" && Boolean(s && ch));
       setView(ok ? wanted : "home");
@@ -272,7 +273,7 @@ export function AtelierApp() {
 
   function navigate(tab: NavTab) {
     if (tab === "home") go("home");
-    else if (tab === "create") go("occasion");
+    else if (tab === "create") go("scan");
     else {
       setLooksKey((value) => value + 1);
       go("looks");
@@ -291,13 +292,16 @@ export function AtelierApp() {
           {signOutError}
         </p>
       )}
-      {view === "home" ? <HomeScreen onStart={() => go("occasion")} /> : null}
+      {view === "home" ? <HomeScreen onStart={() => go("scan")} /> : null}
       {view === "occasion" ? (
         <OccasionScreen
           onPick={(id) => {
             setSituation(id);
             ready.current.situation = id;
             setPlan(null);
+            setCards(null);
+            setCardsError(null);
+            setChosen(null);
             go("kit");
           }}
         />
@@ -311,7 +315,7 @@ export function AtelierApp() {
             setCards(null);
             setCardsError(null);
             setChosen(null);
-            go("scan");
+            go("options");
           }}
         />
       ) : null}
@@ -326,7 +330,7 @@ export function AtelierApp() {
             setSeen({ skin: "", fromPhoto: false });
             ready.current.capture = next;
             setShot((value) => value + 1);
-            go("options");
+            go("occasion");
           }}
         />
       ) : null}
@@ -350,7 +354,7 @@ export function AtelierApp() {
           read={capture?.read ?? null}
           analysis={analysis}
           analyzing={analyzing}
-          aiPending={(cardId) => !aiState[`${shot}:${cardId}`]}
+          aiPending={(cardId) => !(aiKey(cardId) in aiImages)}
           photo={capture ? jpegDataUrl(capture.photo) : ""}
           summary={profile ? profile.tastes.map((id) => t(`taste.${id}`)).join(", ") : ""}
           skinLine={
@@ -361,13 +365,12 @@ export function AtelierApp() {
                 : ""
           }
           readingSkin={!profile?.skin}
-          cards={cards}
+          cards={shownCards}
           loading={cardsLoading}
           error={cardsError}
           onRetry={() => {
             setCards(null);
             setCardsError(null);
-            setShot((value) => value + 1);
           }}
           onChoose={(card) => {
             const key = `${shot}:${card.id}`;
@@ -396,7 +399,7 @@ export function AtelierApp() {
           saved={savedNote}
         />
       ) : null}
-      {view === "looks" ? <MyLooksScreen key={looksKey} onCreate={() => go("occasion")} /> : null}
+      {view === "looks" ? <MyLooksScreen key={looksKey} onCreate={() => go("scan")} /> : null}
       <BottomNav
         active={activeTab}
         onNavigate={navigate}

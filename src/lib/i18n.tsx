@@ -58,7 +58,7 @@ const es: Dict = {
   "sit.editorial": "Editorial",
   "sit.editorial.line": "Contraste de estudio, un punto gráfico.",
 
-  "kit.step": "Paso 2 de 4",
+  "kit.step": "Paso 3 de 4",
   "kit.title": "Cuéntame cómo te maquillas",
   "kit.intro":
     "No hay una lista de marcas. Escribe lo que usas, con tus palabras, y cómo está tu piel. Si una casilla no aplica, déjala en blanco.",
@@ -87,7 +87,7 @@ const es: Dict = {
     "Granos, seca, grasa, sensible, manchas, rojeces, ojeras. Si lo dejas en blanco, lo miro en la foto.",
   "kit.continue": "Seguir",
 
-  "scan.step": "Paso 3 de 4",
+  "scan.step": "Paso 1 de 4",
   "scan.title": "Deja que te vea",
   "scan.intro":
     "Mira a la cámara con luz de frente. Analizo tu rostro y tu piel como lo haría una maquilladora y te propongo tres looks.",
@@ -368,7 +368,7 @@ const en: Dict = {
   "sit.editorial": "Editorial",
   "sit.editorial.line": "Studio contrast with a graphic touch.",
 
-  "kit.step": "Step 2 of 4",
+  "kit.step": "Step 3 of 4",
   "kit.title": "Tell me how you do your makeup",
   "kit.intro":
     "There's no brand list. Write what you use, in your own words, and how your skin is. If a box doesn't apply, leave it blank.",
@@ -397,7 +397,7 @@ const en: Dict = {
     "Breakouts, dry, oily, sensitive, spots, redness, dark circles. Leave it blank and I'll look at the photo.",
   "kit.continue": "Continue",
 
-  "scan.step": "Step 3 of 4",
+  "scan.step": "Step 1 of 4",
   "scan.title": "Let me see you",
   "scan.intro":
     "Look at the camera with light in front of you. I'll study your face and skin like a makeup artist would and suggest three looks.",
@@ -680,7 +680,7 @@ const it: Dict = {
   "sit.editorial": "Editoriale",
   "sit.editorial.line": "Contrasto da studio, un tocco grafico.",
 
-  "kit.step": "Passo 2 di 4",
+  "kit.step": "Passo 3 di 4",
   "kit.title": "Raccontami come ti trucchi",
   "kit.intro":
     "Non c'è una lista di marche. Scrivi cosa usi, con parole tue, e com'è la tua pelle. Se una casella non ti riguarda, lasciala vuota.",
@@ -710,7 +710,7 @@ const it: Dict = {
     "Brufoli, secca, grassa, sensibile, macchie, rossori, occhiaie. Se lo lasci vuoto, guardo la foto.",
   "kit.continue": "Continua",
 
-  "scan.step": "Passo 3 di 4",
+  "scan.step": "Passo 1 di 4",
   "scan.title": "Fatti vedere",
   "scan.intro":
     "Guarda la fotocamera con la luce davanti. Analizzo il tuo viso e la tua pelle come farebbe una truccatrice e ti propongo tre look.",
