@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
 import { ChevronDown } from "lucide-react";
-import { StepLabel } from "@/components/atelier/ui";
+import { useLang } from "@/lib/i18n";
 import {
   AGE_YEARS,
-  TASTES,
   ageFromYears,
+  TASTES,
   composeNote,
   type KitField,
   type PersonBrief,
@@ -13,31 +13,16 @@ import {
 
 const EMPTY_KIT: Record<KitField, string> = { base: "", ojos: "", labios: "", resto: "" };
 
-const FIELDS: { id: KitField; label: string; placeholder: string }[] = [
-  {
-    id: "base",
-    label: "Piel y base",
-    placeholder: "Nada, una BB, o la base que tengas. Marca, tono, si es ligera o cubre.",
-  },
-  {
-    id: "ojos",
-    label: "Ojos",
-    placeholder: "Rímel, lápiz, sombra. Como tú lo llamas.",
-  },
-  {
-    id: "labios",
-    label: "Labios",
-    placeholder: "Bálsamo, labial, brillo, el color que usas.",
-  },
-  {
-    id: "resto",
-    label: "Cejas, rubor y lo demás",
-    placeholder: "Lo que tengas, aunque sea uno solo.",
-  },
+const FIELDS: { id: KitField }[] = [
+  { id: "base" },
+  { id: "ojos" },
+  { id: "labios" },
+  { id: "resto" },
 ];
 
+/** Lo que lleva escrito, para no perderlo al ir atrás y adelante. */
 export type KitDraft = {
-  years?: number | null;
+  years: number | null;
   tastes: TasteId[];
   kit: Record<KitField, string>;
   skin: string;
@@ -45,21 +30,18 @@ export type KitDraft = {
 
 export function KitScreen({
   initial,
-  remembered,
   onDraft,
   onContinue,
 }: {
   initial: KitDraft | null;
-  remembered: boolean;
   onDraft: (draft: KitDraft) => void;
   onContinue: (person: PersonBrief) => void;
 }) {
   const [years, setYears] = useState<number | null>(initial?.years ?? null);
+  const { t } = useLang();
   const [tastes, setTastes] = useState<TasteId[]>(initial?.tastes ?? []);
   const [kit, setKit] = useState(initial?.kit ?? EMPTY_KIT);
   const [skin, setSkin] = useState(initial?.skin ?? "");
-  const filled = Object.values(kit).filter((value) => value.trim()).length + (skin.trim() ? 1 : 0);
-  const [open, setOpen] = useState(filled > 0);
 
   useEffect(() => {
     onDraft({ years, tastes, kit, skin });
@@ -90,31 +72,25 @@ export function KitScreen({
   }
 
   return (
-    <main className="mx-auto max-w-md px-5 pb-32 pt-6">
-      <StepLabel step={2} />
-      <h1 className="mt-3 text-4xl">Cuéntame de ti</h1>
-      <p className="mt-3 text-muted">Solo la edad es necesaria. Lo demás ayuda a afinar tu look.</p>
-      {remembered ? (
-        <p className="mt-3 rounded-2xl bg-blush/10 px-4 py-3 text-sm text-ink">
-          He recordado tus respuestas de la última vez. Cambia lo que quieras.
-        </p>
-      ) : null}
+    <div className="mx-auto max-w-3xl px-4 pb-28 pt-8">
+      <p className="step-eyebrow">{t("kit.step")}</p>
+      <h1 className="mt-3 text-4xl sm:text-6xl">{t("kit.title")}</h1>
+      <p className="mt-4 text-muted">{t("kit.intro")}</p>
 
       <label className="mt-8 block">
-        <span className="font-display text-2xl">Tu edad</span>
-        <span className="mt-1 block text-sm text-muted">
-          Solo la usa tu maquilladora. No se muestra a nadie.
-        </span>
+        <span className="block text-2xl">{t("kit.age")}</span>
+        <span className="mt-1 block text-sm text-muted">{t("kit.ageNote")}</span>
         <span className="relative mt-3 block">
           <select
+            data-testid="age-select"
             value={years ?? ""}
             onChange={(event) => setYears(event.target.value ? Number(event.target.value) : null)}
-            className="age-select w-full appearance-none rounded-2xl border border-line bg-surface px-4 py-3.5 pr-12 text-base"
+            className="min-h-13 w-full appearance-none rounded-2xl border border-line bg-surface px-4 py-3.5 pr-12 text-base text-ink"
           >
-            <option value="">Elige tu edad</option>
+            <option value="">{t("kit.agePick")}</option>
             {AGE_YEARS.map((value) => (
               <option key={value} value={value}>
-                {value} años
+                {t("common.years", { n: value })}
               </option>
             ))}
           </select>
@@ -125,90 +101,68 @@ export function KitScreen({
         </span>
       </label>
 
-      <fieldset className="mt-8">
-        <legend className="font-display text-2xl">Qué te gusta</legend>
-        <p className="mt-1 text-sm text-muted">Elige las que quieras.</p>
-        <div className="mt-3 flex flex-wrap gap-2">
-          {TASTES.map((item) => {
-            const on = tastes.includes(item.id);
-            return (
-              <button
-                key={item.id}
-                type="button"
-                aria-pressed={on}
-                onClick={() => toggleTaste(item.id)}
-                className={`select-tile min-h-11 rounded-full border px-4 text-sm ${on ? "is-on" : ""}`}
-              >
-                {item.label}
-              </button>
-            );
-          })}
-        </div>
-      </fieldset>
-
-      <section className="soft-card mt-8 overflow-hidden">
-        <button
-          type="button"
-          aria-expanded={open}
-          aria-controls="kit-extra"
-          onClick={() => setOpen((value) => !value)}
-          className="flex w-full items-center justify-between gap-3 px-4 py-4 text-left"
-        >
-          <span>
-            <span className="block font-display text-xl">Tu neceser y tu piel</span>
-            <span className="block text-sm text-muted">
-              {filled ? `${filled} de 5 respondidas` : "Opcional · uso lo que ya tienes"}
-            </span>
-          </span>
-          <ChevronDown
-            className={`size-5 shrink-0 text-muted transition-transform duration-200 ${open ? "rotate-180" : ""}`}
-            aria-hidden="true"
-          />
-        </button>
-        {open ? (
-          <div id="kit-extra" className="flex flex-col gap-5 border-t border-line px-4 pb-5 pt-4">
-            {FIELDS.map((field) => (
-              <label key={field.id} className="block">
-                <span className="text-sm font-medium">{field.label}</span>
-                <textarea
-                  value={kit[field.id]}
-                  onChange={(event) =>
-                    setKit((current) => ({
-                      ...current,
-                      [field.id]: event.target.value.slice(0, 240),
-                    }))
-                  }
-                  rows={2}
-                  placeholder={field.placeholder}
-                  className="mt-2 w-full rounded-2xl border border-line bg-bg px-4 py-3 text-base"
-                />
-              </label>
-            ))}
-            <label className="block">
-              <span className="text-sm font-medium">Cómo está tu piel</span>
-              <textarea
-                value={skin}
-                onChange={(event) => setSkin(event.target.value.slice(0, 300))}
-                rows={2}
-                placeholder="Granos, seca, grasa, sensible, manchas, ojeras. Si lo dejas en blanco, lo miro en la foto."
-                className="mt-2 w-full rounded-2xl border border-line bg-bg px-4 py-3 text-base"
-              />
-            </label>
-          </div>
-        ) : null}
-      </section>
-
-      <div className="app-fixed-bar border-t border-line bg-bg/95 px-5 pt-3 backdrop-blur-md">
-        <button
-          type="button"
-          data-testid="kit-continue"
-          disabled={!years}
-          onClick={go}
-          className="w-full min-h-14 rounded-full bg-ink text-base text-surface"
-        >
-          {years ? "Seguir" : "Elige tu edad para seguir"}
-        </button>
+      <h2 className="mt-8 text-2xl">{t("kit.tastes")}</h2>
+      <div className="mt-3 flex flex-wrap gap-2">
+        {TASTES.map((item) => {
+          const on = tastes.includes(item.id);
+          return (
+            <button
+              key={item.id}
+              type="button"
+              aria-pressed={on}
+              onClick={() => toggleTaste(item.id)}
+              className={
+                on
+                  ? "min-h-11 rounded-full border border-ink bg-ink px-4 text-sm text-surface"
+                  : "min-h-11 rounded-full border border-line bg-surface px-4 text-sm"
+              }
+            >
+              {t(`taste.${item.id}`)}
+            </button>
+          );
+        })}
       </div>
-    </main>
+
+      <div className="mt-10 flex flex-col gap-6">
+        {FIELDS.map((field) => (
+          <label key={field.id} className="block">
+            <span className="text-2xl">{t(`kit.${field.id}`)}</span>
+            <textarea
+              value={kit[field.id]}
+              onChange={(event) =>
+                setKit((current) => ({ ...current, [field.id]: event.target.value.slice(0, 240) }))
+              }
+              rows={3}
+              placeholder={t(`kit.${field.id}.ph`)}
+              className="mt-3 w-full rounded-2xl border border-line bg-surface px-4 py-3 text-base"
+            />
+          </label>
+        ))}
+        <label className="block">
+          <span className="text-2xl">{t("kit.skin")}</span>
+          <textarea
+            value={skin}
+            onChange={(event) => setSkin(event.target.value.slice(0, 300))}
+            rows={3}
+            placeholder={t("kit.skin.ph")}
+            className="mt-3 w-full rounded-2xl border border-line bg-surface px-4 py-3 text-base"
+          />
+        </label>
+      </div>
+
+      <div className="app-fixed-bar border-t border-line bg-bg/95 px-4 py-3 backdrop-blur-md">
+        <div className="mx-auto max-w-3xl">
+          <button
+            type="button"
+            data-testid="kit-continue"
+            disabled={!years}
+            onClick={go}
+            className="min-h-11 rounded-full bg-ink px-6 text-surface disabled:opacity-40"
+          >
+            {years ? t("kit.continue") : t("kit.agePick")}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }

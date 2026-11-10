@@ -1,52 +1,48 @@
+import { InstallPrompt } from "@/components/install-prompt";
+import { LanguageProvider } from "@/lib/i18n";
 import { createRootRoute, HeadContent, Outlet, Scripts } from "@tanstack/react-router";
 import { AuthProvider } from "@/lib/auth/provider";
 import { PreviewHostBridge } from "@/components/preview-host-bridge";
 import appCss from "../styles.css?url";
 
 const APP_NAME = "NEUSTA";
-const DESCRIPTION = "Tu look, a tu medida. Asesoría de maquillaje personalizada.";
-const OG_IMAGE = "https://neusta.vercel.app/og.jpg";
 
 export const Route = createRootRoute({
   head: () => ({
     meta: [
       { charSet: "utf-8" },
-      { name: "viewport", content: "width=device-width, initial-scale=1, viewport-fit=cover" },
+      { name: "viewport", content: "width=device-width, initial-scale=1" },
+      { name: "referrer", content: "no-referrer" },
       { title: APP_NAME },
-      { name: "description", content: DESCRIPTION },
-      { name: "theme-color", content: "#faf7f2" },
-      { name: "mobile-web-app-capable", content: "yes" },
-      { name: "apple-mobile-web-app-capable", content: "yes" },
-      { name: "apple-mobile-web-app-status-bar-style", content: "default" },
-      { name: "apple-mobile-web-app-title", content: APP_NAME },
-
-      // Open Graph (WhatsApp, Facebook, etc.)
-      { property: "og:title", content: APP_NAME },
-      { property: "og:description", content: DESCRIPTION },
-      { property: "og:image", content: OG_IMAGE },
+      {
+        name: "description",
+        content:
+          "NEUSTA pregunta edad, gusto y el maquillaje que ya tienes, y propone looks con marcas de droguería.",
+      },
+      { name: "theme-color", content: "#a8475f" },
+      { property: "og:type", content: "website" },
+      { property: "og:site_name", content: "NEUSTA" },
+      { property: "og:title", content: "NEUSTA · Tu look, a tu medida" },
+      {
+        property: "og:description",
+        content: "Elige la ocasión y te guiamos con looks de maquillaje pensados para ti.",
+      },
+      { property: "og:image", content: "https://neusta.vercel.app/og.jpg" },
       { property: "og:image:width", content: "1200" },
       { property: "og:image:height", content: "630" },
-      { property: "og:type", content: "website" },
-      { property: "og:url", content: "https://neusta.vercel.app" },
-
-      // Twitter
       { name: "twitter:card", content: "summary_large_image" },
-      { name: "twitter:title", content: APP_NAME },
-      { name: "twitter:description", content: DESCRIPTION },
-      { name: "twitter:image", content: OG_IMAGE },
+      { name: "twitter:image", content: "https://neusta.vercel.app/og.jpg" },
     ],
     links: [
-      { rel: "icon", type: "image/png", sizes: "32x32", href: "/icon-192.png" },
-      { rel: "icon", type: "image/png", sizes: "192x192", href: "/icon-192.png" },
-      { rel: "icon", type: "image/png", sizes: "512x512", href: "/icon-512.png" },
-      { rel: "apple-touch-icon", href: "/icon-180.png" },
+      { rel: "icon", type: "image/svg+xml", href: "/favicon.svg" },
       { rel: "stylesheet", href: appCss },
       { rel: "manifest", href: "/manifest.webmanifest" },
+      { rel: "apple-touch-icon", href: "/icon-180.png" },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {
         rel: "stylesheet",
-        href: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Playfair+Display:wght@500;600;700&display=swap",
+        href: "https://fonts.googleapis.com/css2?family=Cormorant:ital,wght@0,500;0,600;0,700;1,500;1,600&family=Montserrat:wght@400;500;600&display=swap",
       },
     ],
   }),
@@ -57,9 +53,18 @@ export const Route = createRootRoute({
       </head>
       <body>
         <PreviewHostBridge />
-        <AuthProvider>
-          <Outlet />
-        </AuthProvider>
+        <LanguageProvider>
+          <InstallPrompt />
+          <AuthProvider>
+            <Outlet />
+          </AuthProvider>
+        </LanguageProvider>
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              "if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('/sw.js').catch(function(){})})}",
+          }}
+        />
         <Scripts />
       </body>
     </html>

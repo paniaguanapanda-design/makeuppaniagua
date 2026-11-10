@@ -1,237 +1,191 @@
-import { useEffect, useState } from "react";
-import { ArrowRight, RefreshCw } from "lucide-react";
-import { LookPlaceholder, StepLabel } from "@/components/atelier/ui";
-import {
-  DEPTH_LABEL,
-  SHAPE_LABEL,
-  SHAPE_NOTE,
-  TONE_LABEL,
-  type FaceRead,
-  type SituationId,
-  situationById,
-} from "@/lib/makeup/types";
-import type { FaceAnalysis, ReferenceCard } from "@/lib/makeup/imagine";
-
-const WAITING = [
-  "Leyendo la forma de tu rostro…",
-  "Buscando tu subtono…",
-  "Eligiendo colores para la ocasión…",
-  "Aplicando el maquillaje a tu foto…",
-  "Dando los últimos retoques…",
-];
-
-function useWaitingLine(active: boolean) {
-  const [index, setIndex] = useState(0);
-  useEffect(() => {
-    if (!active) {
-      setIndex(0);
-      return;
-    }
-    const timer = window.setInterval(
-      () => setIndex((value) => Math.min(value + 1, WAITING.length - 1)),
-      4500,
-    );
-    return () => window.clearInterval(timer);
-  }, [active]);
-  return { line: WAITING[index], progress: (index + 1) / WAITING.length };
-}
+import { ArrowRight } from "lucide-react";
+import type { FaceRead, SituationId } from "@/lib/makeup/types";
+import type { ReferenceCard } from "@/lib/makeup/imagine";
+import type { FaceAnalysis } from "@/lib/makeup/analysis";
+import { useLang } from "@/lib/i18n";
 
 export function OptionsScreen({
   situation,
   read,
   analysis,
+  analyzing,
+  aiPending,
+  photo,
   summary,
   skinLine,
   readingSkin,
   cards,
   loading,
   error,
-  limited,
   onRetry,
   onChoose,
 }: {
   situation: SituationId;
   read: FaceRead | null;
   analysis: FaceAnalysis | null;
+  analyzing: boolean;
+  /** True mientras la imagen con IA de esa tarjeta todavía no ha llegado. */
+  aiPending: (cardId: string) => boolean;
+  /** Su foto original, para el marcador mientras la IA trabaja. */
+  photo: string;
   summary: string;
   skinLine: string;
   readingSkin: boolean;
   cards: ReferenceCard[] | null;
   loading: boolean;
   error: string | null;
-  limited: boolean;
   onRetry: () => void;
   onChoose: (card: ReferenceCard) => void;
 }) {
-  const occasion = situationById(situation);
-  const waiting = useWaitingLine(loading && !cards);
-
+  const { t } = useLang();
   return (
-    <main className="mx-auto max-w-md px-5 pb-16 pt-6">
-      <StepLabel step={4} extra={occasion.label} />
-      <h1 className="mt-3 text-4xl">Tus looks</h1>
-
-      {loading && !cards ? (
-        <div className="mt-4" aria-live="polite">
-          <p className="text-muted">{readingSkin ? waiting.line : "Preparando tus opciones…"}</p>
-          <div className="mt-3 h-1 overflow-hidden rounded-full bg-line/60">
-            <div
-              className="h-full rounded-full bg-blush transition-[width] duration-[4000ms] ease-out"
-              style={{ width: `${Math.round(waiting.progress * 92)}%` }}
-            />
-          </div>
-          <p className="mt-2 text-xs text-muted">Suele tardar entre 15 y 40 segundos.</p>
-        </div>
-      ) : (
-        <p className="mt-3 text-muted">
-          Tres niveles pensados para tu rostro: natural, medio y glamuroso. Elige uno y te enseño
-          los pasos.
-        </p>
-      )}
-
+    <div className="mx-auto max-w-6xl px-4 pb-16 pt-8">
+      <p className="step-eyebrow text-center">{t("opt.step")}</p>
+      <h1 className="mx-auto mt-3 max-w-3xl text-center text-4xl">
+        {t("opt.title1")} <em>{t("opt.title2")}</em>
+      </h1>
+      <div className="hair" />
+      <p className="text-center text-sm text-muted">
+        {t("opt.sub", { occasion: t(`sit.${situation}`) })}
+      </p>
       {analysis ? (
-        <section className="soft-card mt-5 p-4" aria-label="Análisis de tu maquilladora">
-          <p className="text-xs font-medium tracking-widest text-blush uppercase">
-            Lo que veo como maquilladora
-          </p>
-          <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
+        <section
+          className="glass mx-auto mt-6 max-w-xl rounded-[1.6rem] p-5 text-center"
+          aria-label={t("opt.analysis")}
+        >
+          <p className="step-eyebrow">{t("opt.analysis")}</p>
+          <dl className="mt-4 grid grid-cols-3 gap-3 text-sm">
             <div>
-              <dt className="text-xs text-muted">Rostro</dt>
+              <dt className="text-[11px] text-muted">{t("opt.face")}</dt>
               <dd className="font-medium">
-                {SHAPE_LABEL[analysis.shape ?? read?.shape ?? "ovalado"]}
+                {t(`shape.${analysis.shape ?? read?.shape ?? "ovalado"}`)}
               </dd>
             </div>
             <div>
-              <dt className="text-xs text-muted">Piel</dt>
-              <dd className="font-medium capitalize">{analysis.skinType || "—"}</dd>
+              <dt className="text-[11px] text-muted">{t("opt.skin")}</dt>
+              <dd className="font-medium">
+                {analysis.skinType ? t(`skinType.${analysis.skinType}`) : "—"}
+              </dd>
             </div>
             <div>
-              <dt className="text-xs text-muted">Ojeras</dt>
-              <dd className="font-medium capitalize">{analysis.darkCircles}</dd>
+              <dt className="text-[11px] text-muted">{t("opt.circles")}</dt>
+              <dd className="font-medium">{t(`circles.${analysis.darkCircles}`)}</dd>
             </div>
-            {read ? (
-              <div>
-                <dt className="text-xs text-muted">Tono</dt>
-                <dd className="font-medium">
-                  {TONE_LABEL[read.undertone]} · {DEPTH_LABEL[read.depth]}
-                </dd>
-              </div>
-            ) : null}
           </dl>
-          {analysis.quality ? <p className="mt-3 text-sm text-muted">{analysis.quality}</p> : null}
+          {read ? (
+            <p className="mt-3 text-xs text-muted">
+              {t("opt.tone", {
+                tone: t(`tone.${read.undertone}`).toLowerCase(),
+                depth: t(`toneDepth.${read.depth}`).toLowerCase(),
+              })}
+            </p>
+          ) : null}
+          {analysis.quality ? <p className="mt-2 text-sm text-muted">{analysis.quality}</p> : null}
           {analysis.concerns.length ? (
-            <div className="mt-3 flex flex-wrap gap-2">
+            <div className="mt-3 flex flex-wrap justify-center gap-2">
               {analysis.concerns.map((item) => (
-                <span
-                  key={item}
-                  className="rounded-full bg-clay px-3 py-1 text-xs capitalize text-ink"
-                >
-                  {item}
+                <span key={item} className="rounded-full bg-white/70 px-3 py-1 text-xs text-ink">
+                  {t(`concern.${item}`)}
                 </span>
               ))}
             </div>
           ) : null}
           {analysis.advice ? (
-            <p className="mt-3 border-t border-line pt-3 font-display text-lg leading-snug">
-              «{analysis.advice}»
+            <p className="mt-4 font-display text-lg leading-snug">
+              <em>«{analysis.advice}»</em>
             </p>
           ) : null}
-          <p className="mt-2 text-[11px] text-muted">
-            Orientación de maquillaje, no un diagnóstico.
-          </p>
+          <p className="mt-2 text-[11px] text-muted">{t("opt.disclaimer")}</p>
         </section>
-      ) : read ? (
-        <div className="mt-5 flex flex-wrap gap-2" aria-label="Lo que veo en tu foto">
-          {[SHAPE_LABEL[read.shape], TONE_LABEL[read.undertone], DEPTH_LABEL[read.depth]].map(
-            (label) => (
-              <span key={label} className="rounded-full bg-clay px-3 py-1 text-xs text-ink">
-                {label}
-              </span>
-            ),
-          )}
-        </div>
-      ) : !loading ? (
-        <p className="mt-4 rounded-2xl bg-blush/10 px-4 py-3 text-sm text-blush">
-          No pude leer bien este rostro. Prueba con otra foto con más luz.
+      ) : analyzing ? (
+        <p className="mx-auto mt-5 max-w-xl text-center text-sm text-muted" aria-live="polite">
+          {t("opt.analyzing")}
         </p>
-      ) : null}
-      {read && !analysis && !loading ? (
-        <p className="mt-3 text-sm text-muted">
-          {SHAPE_NOTE[read.shape]}
+      ) : read ? (
+        <p className="mx-auto mt-4 max-w-2xl text-center text-sm">
+          {t(`shape.${read.shape}`)} · {t(`tone.${read.undertone}`)} ·{" "}
+          {t(`toneDepth.${read.depth}`)}. {t(`shapeNote.${read.shape}`)}
           {summary ? ` ${summary}.` : ""}
         </p>
+      ) : (
+        <p className="mt-4 text-center text-sm text-blush">{t("opt.unreadable")}</p>
+      )}
+      {skinLine && !analysis ? (
+        <p className="mx-auto mt-2 max-w-2xl text-center text-sm">{skinLine}</p>
       ) : null}
-      {skinLine && !analysis ? <p className="mt-2 text-sm text-muted">{skinLine}</p> : null}
-
       {error ? (
-        <div className="mt-6 rounded-2xl border border-blush/30 bg-blush/5 p-4" role="alert">
-          <p className="text-sm text-blush">
-            No pude crear las imágenes esta vez. Puedes seguir con los pasos o reintentarlo.
-          </p>
+        <div className="mt-6">
+          <p className="text-sm text-blush">{error}</p>
           <button
             type="button"
             onClick={onRetry}
-            className="mt-3 inline-flex min-h-11 items-center gap-2 rounded-full bg-ink px-5 text-surface"
+            className="mt-4 min-h-11 rounded-full bg-ink px-5 text-surface"
           >
-            <RefreshCw className="size-4" aria-hidden="true" />
-            Reintentar
+            {t("common.retry")}
           </button>
         </div>
       ) : null}
-      {limited ? (
-        <p className="mt-6 rounded-2xl bg-clay px-4 py-3 text-sm text-ink">
-          Hoy ya has creado muchas imágenes, así que te enseño los looks sin foto. Los pasos y
-          productos siguen siendo para ti. Mañana podrás volver a ver las referencias.
+      {cards?.some((item) => aiPending(item.id)) ? (
+        <p className="ai-wait mx-auto mt-6 max-w-md" aria-live="polite">
+          {t("opt.aiWait")}
         </p>
       ) : null}
-
-      <div className="mt-6 flex flex-col gap-5">
+      <div className="mt-7 flex flex-col gap-3">
         {cards
-          ? cards.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                data-testid={`option-${item.id}`}
-                onClick={() => onChoose(item)}
-                className="soft-card tap-card group overflow-hidden text-left"
-              >
-                {item.imageUrl ? (
-                  <img
-                    src={item.imageUrl}
-                    alt={`Referencia del look ${item.title}`}
-                    className="frame-portrait w-full object-cover"
-                  />
-                ) : (
-                  <LookPlaceholder title={item.title} compact />
-                )}
-                <span className="flex items-center justify-between gap-3 px-4 py-4">
-                  <span>
-                    <span className="block font-display text-2xl">{item.title}</span>
-                    <span className="mt-1 block text-sm text-muted">{item.line}</span>
+          ? cards.map((item) => {
+              const pending = aiPending(item.id);
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  data-testid={`option-${item.id}`}
+                  disabled={pending}
+                  aria-busy={pending}
+                  onClick={() => onChoose(item)}
+                  aria-label={`${t(`level.${item.id}`)}: ${t(`line.${situation}.${item.id}`)}`}
+                  className="look-choice-card"
+                >
+                  <span className="relative shrink-0">
+                    {pending ? (
+                      // Mientras la IA trabaja no se enseña el pintado del móvil: parecería la respuesta.
+                      <span className="look-choice-image ai-creating">
+                        {photo ? <img src={photo} alt="" /> : null}
+                        <span className="ai-creating-label">{t("opt.aiPending")}</span>
+                      </span>
+                    ) : (
+                      <img
+                        src={item.imageUrl}
+                        alt=""
+                        className="look-choice-image ai-reveal object-cover"
+                      />
+                    )}
                   </span>
-                  <span className="grid size-10 shrink-0 place-items-center rounded-full bg-ink text-surface transition-transform duration-200 group-hover:translate-x-0.5">
-                    <ArrowRight className="size-4" aria-hidden="true" />
+                  <span className="min-w-0 flex-1 py-3 pr-4 text-left">
+                    <span className="block font-display text-[1.4rem] leading-tight">
+                      {t(`level.${item.id}`)}
+                    </span>
+                    <span className="mt-1 block text-xs leading-5 text-muted">
+                      {t(`line.${situation}.${item.id}`)}
+                    </span>
                   </span>
-                </span>
-              </button>
-            ))
+                  <span className="look-choice-arrow" aria-hidden="true">
+                    <ArrowRight className="size-4" />
+                  </span>
+                </button>
+              );
+            })
           : loading
             ? [0, 1, 2].map((item) => (
-                <div key={item} className="soft-card overflow-hidden" aria-hidden="true">
-                  <div className="frame-portrait skeleton" />
-                  <div className="space-y-2 px-4 py-4">
-                    <span className="skeleton block h-5 w-1/2 rounded" />
-                    <span className="skeleton block h-3 w-3/4 rounded" />
-                  </div>
+                <div key={item} className="look-choice-card">
+                  <div className="look-choice-image animate-pulse bg-clay/60" />
+                  <p className="flex-1 px-4 py-4 text-sm text-muted">
+                    {item === 0 ? (readingSkin ? t("opt.load1") : t("opt.load1b")) : t("opt.load2")}
+                  </p>
                 </div>
               ))
             : null}
       </div>
-
-      <p className="mt-6 text-center text-xs text-muted">
-        Tu foto solo se usa para crear estas referencias. No se guarda salvo que nos dejes tu reseña
-        y lo autorices.
-      </p>
-    </main>
+      <p className="mt-6 text-center text-sm text-muted">{t("opt.privacy")}</p>
+    </div>
   );
 }

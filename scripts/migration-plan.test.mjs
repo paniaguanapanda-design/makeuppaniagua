@@ -58,12 +58,19 @@ test("non-.sql entries are dropped (readdir also yields the auth/ directory)", (
 
 test("the auth schema ships outside the globbed directory", () => {
   const migrationsDir = join(projectRoot(), "migrations");
-  // La app puede tener sus propias migraciones; lo que importa es que el
-  // esquema opcional de auth (migrations/auth/) nunca entre en el glob.
-  const authFiles = readdirSync(join(migrationsDir, "auth"));
-  const pending = pendingMigrations(readdirSync(migrationsDir), []).map((m) => m.name);
-  assert.ok(authFiles.includes("0001_auth.sql"));
-  for (const name of authFiles) assert.ok(!pending.includes(name), `${name} no debe aplicarse por defecto`);
+  assert.deepEqual(
+    pendingMigrations(readdirSync(migrationsDir), []).map(({ name }) => name),
+    [
+      "0002_orla.sql",
+      "0003_accesible.sql",
+      "0004_opiniones.sql",
+      "0005_auth.sql",
+      "0006_resenas_y_limites.sql",
+      "0007_mis_looks.sql",
+    ],
+  );
+  assert.equal(isMigrationFile("auth"), false);
+  assert.ok(readdirSync(join(migrationsDir, "auth")).includes("0001_auth.sql"));
 });
 
 test("this workspace's auth schema copy is byte-identical to its source", () => {

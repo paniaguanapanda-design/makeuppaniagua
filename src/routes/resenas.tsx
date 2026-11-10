@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { Download, Loader2, Lock, Star } from "lucide-react";
-import { listReviews, type Review } from "@/lib/makeup/feedback";
+import { listReviews, type AdminReview as Review } from "@/lib/makeup/feedback";
 
 export const Route = createFileRoute("/resenas")({
   head: () => ({
@@ -23,7 +23,6 @@ function csv(reviews: Review[]) {
     "publicable",
     "ocasion",
     "look",
-    "etiquetas",
     "reseña",
   ];
   const cell = (value: string | number | boolean) => `"${String(value).replace(/"/g, '""')}"`;
@@ -36,7 +35,6 @@ function csv(reviews: Review[]) {
       r.consentPublish ? "sí" : "no",
       r.situation,
       r.look,
-      r.tags,
       r.comment,
     ]
       .map(cell)
@@ -96,7 +94,7 @@ function ReviewsPage() {
 
   if (!reviews) {
     return (
-      <main className="app-shell flex flex-col justify-center px-6">
+      <main className="mx-auto flex min-h-[100svh] max-w-md flex-col justify-center bg-bg px-6">
         <form
           className="mx-auto w-full max-w-sm"
           onSubmit={(event) => {
@@ -138,14 +136,14 @@ function ReviewsPage() {
     : 0;
 
   return (
-    <main className="app-shell px-5 pt-8 pb-16">
+    <main className="mx-auto min-h-[100svh] max-w-md bg-bg px-5 pt-8 pb-16">
       <h1 className="text-4xl">Reseñas</h1>
       <p className="mt-2 text-sm text-muted">
         {reviews.length} reseñas · media {average.toFixed(1)} ★ ·{" "}
         {reviews.filter((r) => r.consentPublish).length} se pueden publicar
       </p>
       <div className="mt-4 flex flex-wrap items-center gap-2">
-        <label className="chip-button cursor-pointer">
+        <label className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-full border border-line bg-surface px-4 text-sm">
           <input
             type="checkbox"
             checked={onlyPublic}
@@ -153,11 +151,15 @@ function ReviewsPage() {
               setOnlyPublic(event.target.checked);
               void load(key, event.target.checked);
             }}
-            className="consent-check"
+            className="size-5 accent-[#a8475f]"
           />
           Solo publicables
         </label>
-        <button type="button" onClick={download} className="chip-button">
+        <button
+          type="button"
+          onClick={download}
+          className="inline-flex min-h-11 items-center gap-2 rounded-full border border-line bg-surface px-4 text-sm"
+        >
           <Download className="size-4" aria-hidden="true" />
           Descargar CSV
         </button>
@@ -165,7 +167,7 @@ function ReviewsPage() {
 
       <ul className="mt-6 space-y-4">
         {reviews.map((review) => (
-          <li key={review.id} className="soft-card p-4">
+          <li key={review.id} className="rounded-2xl border border-line bg-surface p-4 shadow-sm">
             <div className="flex gap-4">
               {review.photo ? (
                 <a href={review.photo} target="_blank" rel="noreferrer" className="shrink-0">
@@ -213,23 +215,12 @@ function ReviewsPage() {
             {review.comment ? (
               <p className="mt-3 text-sm leading-relaxed">«{review.comment}»</p>
             ) : null}
-            {review.tags ? <p className="mt-2 text-xs text-muted">{review.tags}</p> : null}
             <div className="mt-3 flex items-center justify-between gap-2">
               <span
                 className={`rounded-full px-3 py-1 text-xs ${review.consentPublish ? "bg-blush text-white" : "bg-clay text-ink"}`}
               >
                 {review.consentPublish ? "Se puede publicar" : "Solo uso interno"}
               </span>
-              {review.lookImage ? (
-                <a
-                  href={review.lookImage}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-xs text-muted underline"
-                >
-                  Ver look generado
-                </a>
-              ) : null}
             </div>
           </li>
         ))}
