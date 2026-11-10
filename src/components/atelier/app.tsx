@@ -1,29 +1,52 @@
-import { useCallback, useEffect, useState } from "react";
-import { KitScreen } from "@/components/atelier/kit";
-import { DirectoryScreen, HomeScreen, OccasionScreen } from "@/components/atelier/screens";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { KitScreen, type KitDraft } from "@/components/atelier/kit";
+import { HomeScreen, OccasionScreen } from "@/components/atelier/screens";
+import { BottomNav, type NavTab } from "@/components/atelier/bottom-nav";
+import { MyLooksScreen } from "@/components/atelier/my-looks";
+import { saveLook } from "@/lib/makeup/saved";
+import { OPTION_IDS, optionById, visibleZones, type OptionId } from "@/lib/makeup/references";
 import { OptionsScreen } from "@/components/atelier/options";
 import { ScannerScreen } from "@/components/atelier/scanner";
 import { StepsScreen } from "@/components/atelier/steps";
-import { FeedbackScreen } from "@/components/atelier/feedback";
-import { InstallBanner } from "@/components/install-banner";
 import { referenceLooks, type ReferenceCard, type ReferenceResult } from "@/lib/makeup/imagine";
+import { aiLook } from "@/lib/makeup/ai-look";
+import { renderCard } from "@/lib/makeup/preview";
+import { noteZones, type PersonBrief } from "@/lib/makeup/profile";
+import { recommendLook } from "@/lib/makeup/server";
+import type { Capture, LookPlan, SituationId } from "@/lib/makeup/types";
+import { analysisLine, analyzeFace, type FaceAnalysis } from "@/lib/makeup/analysis";
 import { jpegDataUrl } from "@/lib/makeup/photo";
-import { noteZones, personLine, type PersonBrief } from "@/lib/makeup/profile";
-import { getDirectory, recommendLook } from "@/lib/makeup/server";
-import type { Capture, Directory, LookPlan, SituationId } from "@/lib/makeup/types";
-import { ArrowLeft } from "lucide-react";
+import { useLang } from "@/lib/i18n";
+import { signOut } from "@/lib/auth/client";
 
 const referenceJobs = new Map<string, Promise<ReferenceResult>>();
 
-type View = "home" | "occasion" | "kit" | "scan" | "options" | "steps" | "feedback" | "directory";
+type View = "home" | "occasion" | "kit" | "scan" | "options" | "steps" | "looks";
+
+/** Reduce la foto del look para guardarla en la cuenta sin que pese demasiado. */
+async function compactJpeg(src: string): Promise<string> {
+  const img = new Image();
+  img.src = src;
+  await img.decode();
+  const scale = Math.min(1, 720 / img.naturalWidth);
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.round(img.naturalWidth * scale);
+  canvas.height = Math.round(img.naturalHeight * scale);
+  canvas.getContext("2d")?.drawImage(img, 0, 0, canvas.width, canvas.height);
+  for (const quality of [0.82, 0.7, 0.55]) {
+    const out = canvas.toDataURL("image/jpeg", quality);
+    if (out.length < 880_000) return out;
+  }
+  return canvas.toDataURL("image/jpeg", 0.4);
+}
 
 export function AtelierApp() {
   const [view, setView] = useState<View>("home");
-  const [backTo, setBackTo] = useState<View>("home");
   const [situation, setSituation] = useState<SituationId | null>(null);
   const [capture, setCapture] = useState<Capture | null>(null);
-  const [directory, setDirectory] = useState<Directory | null>(null);
-  const [catalogError, setCatalogError] = useState<string | null>(null);
+  const [looksKey, setLooksKey] = useState(0);
+  const savedIds = useRef(new Map<string, string>());
+  const [savedNote, setSavedNote] = useState(false);
   const [plan, setPlan] = useState<LookPlan | null>(null);
   const [planError, setPlanError] = useState<string | null>(null);
   const [cards, setCards] = useState<ReferenceCard[] | null>(null);
@@ -32,19 +55,21 @@ export function AtelierApp() {
   const [shot, setShot] = useState(0);
   const [chosen, setChosen] = useState<ReferenceCard | null>(null);
   const [profile, setProfile] = useState<PersonBrief | null>(null);
+  const [kitDraft, setKitDraft] = useState<KitDraft | null>(null);
   const [seen, setSeen] = useState({ skin: "", fromPhoto: false });
-
-  const loadDirectory = useCallback(() => {
-    setCatalogError(null);
-    getDirectory()
-      .then((data) => {
-        setDirectory(data);
-        setCatalogError(null);
-      })
-      .catch((error: unknown) => {
-        setCatalogError(error instanceof Error ? error.message : "No pude abrir el catálogo.");
-      });
-  }, []);
+  const upgraded = useRef(new Set<string>());
+  // Estado de la imagen con IA de cada tarjeta (clave: foto:look). Sin entrada = aún pendiente.
+  // Imagen de la IA por foto:ocasión:look. "" = falló (se usa el pintado local); sin entrada = en camino.
+  const [aiImages, setAiImages] = useState<Record<string, string>>({});
+  const [aiNote, setAiNote] = useState("");
+  const [signOutError, setSignOutError] = useState("");
+  const { t, lang } = useLang();
+  const [analysis, setAnalysis] = useState<FaceAnalysis | null>(null);
+  const [analyzing, setAnalyzing] = useState(false);
+  const analyzedShot = useRef(-1);
+  const analysisSkin = analysis ? analysisLine(analysis) : "";
+  const shotRef = useRef(0);
+  shotRef.current = shot;
 
   const loadPlan = useCallback(() => {
     if (!situation) return;
@@ -56,23 +81,51 @@ export function AtelierApp() {
         situation,
         undertone: read?.undertone ?? "neutro",
         depth: read?.depth ?? "media",
-        shape: read?.shape ?? "ovalado",
+        shape: analysis?.shape ?? read?.shape ?? "ovalado",
         owned: [],
         age: profile?.age ?? "joven",
         tastes: profile?.tastes ?? [],
         note: profile?.note ?? "",
-        skin: profile?.skin || seen.skin,
+        skin: [profile?.skin || seen.skin, analysisSkin]
+          .filter(Boolean)
+          .join(". En la foto: ")
+          .slice(0, 300),
+        lang,
       },
     })
       .then((data) => setPlan(data))
       .catch((error: unknown) => {
         setPlanError(error instanceof Error ? error.message : "No pude armar el look.");
       });
-  }, [situation, capture, profile, seen.skin]);
+  }, [situation, capture, profile, seen.skin, analysis, analysisSkin, lang]);
 
+  // El look elegido se guarda en su cuenta (y se actualiza al llegar la IA o el tutorial).
   useEffect(() => {
-    loadDirectory();
-  }, [loadDirectory]);
+    if (!chosen || !situation) return;
+    const id = savedIds.current.get(`${shot}:${chosen.id}`);
+    if (!id) return;
+    const option = optionById(situation, chosen.id as OptionId);
+    const zones = visibleZones(option, noteZones(profile?.note ?? ""));
+    const steps = (plan?.steps ?? [])
+      .filter((step) => zones.includes(step.zone))
+      .map((step) => ({
+        zone: step.zone,
+        title: step.title.slice(0, 120),
+        instruction: step.instruction.slice(0, 900),
+      }));
+    let alive = true;
+    compactJpeg(chosen.imageUrl)
+      .then((image) =>
+        saveLook({
+          data: { id, situation, look: chosen.id as OptionId, image, steps: steps.slice(0, 12) },
+        }),
+      )
+      .then(() => alive && setSavedNote(true))
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+    };
+  }, [chosen, plan, situation, shot, profile]);
 
   useEffect(() => {
     if (view === "steps") loadPlan();
@@ -81,24 +134,12 @@ export function AtelierApp() {
   useEffect(() => {
     if (view !== "options" || cards || cardsError || !capture?.read || !situation) return;
     let alive = true;
-    const read = capture.read;
     const owned = noteZones(profile?.note ?? "");
     const jobKey = `${shot}:${owned.join(",")}:${profile?.age ?? ""}:${profile?.tastes.join(",") ?? ""}:${profile?.note ?? ""}:${profile?.skin ?? ""}`;
     let job = referenceJobs.get(jobKey);
     if (!job) {
       job = referenceLooks({
-        data: {
-          situation,
-          undertone: read.undertone,
-          depth: read.depth,
-          shape: read.shape,
-          owned,
-          age: profile?.age ?? "joven",
-          tastes: profile?.tastes ?? [],
-          note: profile?.note ?? "",
-          skin: profile?.skin ?? "",
-          photo: jpegDataUrl(capture.photo),
-        },
+        data: { situation, owned, skin: profile?.skin ?? "" },
       });
       referenceJobs.set(jobKey, job);
     }
@@ -106,7 +147,12 @@ export function AtelierApp() {
     job
       .then((data) => {
         if (!alive) return;
-        setCards(data.cards);
+        setCards(
+          data.cards.map((card) => ({
+            ...card,
+            imageUrl: renderCard(card, capture, situation, owned),
+          })),
+        );
         setSeen({ skin: data.skinSeen, fromPhoto: data.skinFromPhoto });
         setCardsError(null);
       })
@@ -114,11 +160,6 @@ export function AtelierApp() {
         referenceJobs.delete(jobKey);
         if (!alive) return;
         setCardsError(error instanceof Error ? error.message : "No pude crear las referencias.");
-        setCards([
-          { id: "piel", title: "Mínimo", line: "Casi sin maquillaje", imageUrl: "" },
-          { id: "natural", title: "Natural", line: "Piel luminosa y ligera", imageUrl: "" },
-          { id: "definido", title: "Definido", line: "Más presencia sin cargar", imageUrl: "" },
-        ]);
       })
       .finally(() => {
         if (alive) setCardsLoading(false);
@@ -128,81 +169,157 @@ export function AtelierApp() {
     };
   }, [view, shot, cards, cardsError, capture, situation, profile]);
 
-  function openDirectory() {
-    setBackTo(view === "directory" ? backTo : view);
-    setView("directory");
+  // La IA empieza en cuanto hay foto y ocasión: trabaja mientras ella completa su perfil.
+  useEffect(() => {
+    if (view === "home" || view === "looks" || !capture?.read || !situation) return;
+    const read = capture.read;
+    const jpeg = capture.photo.toDataURL("image/jpeg", 0.85);
+    for (const optionId of OPTION_IDS) {
+      const key = `${shot}:${situation}:${optionId}`;
+      if (upgraded.current.has(key)) continue;
+      upgraded.current.add(key);
+      aiLook({
+        data: {
+          situation,
+          optionId,
+          undertone: read.undertone,
+          depth: read.depth,
+          shape: read.shape,
+          owned: [],
+          photo: jpeg,
+        },
+      })
+        .then((res) => {
+          setAiNote("ok");
+          setAiImages((prev) => ({ ...prev, [key]: res.imageUrl }));
+        })
+        .catch((error: unknown) => {
+          setAiImages((prev) => ({ ...prev, [key]: "" }));
+          if (shotRef.current === shot)
+            setAiNote(error instanceof Error ? error.message.slice(0, 160) : "error");
+        });
+    }
+  }, [view, capture, situation, shot]);
+
+  // Cada tarjeta enseña la imagen de la IA en cuanto llega; si la IA falló, el pintado del móvil.
+  const aiKey = (id: string) => `${shot}:${situation}:${id}`;
+  const shownCards =
+    cards?.map((card) => {
+      const url = aiImages[aiKey(card.id)];
+      return url ? { ...card, imageUrl: url } : card;
+    }) ?? null;
+
+  // La maquilladora mira el rostro y la piel una vez por foto.
+  useEffect(() => {
+    if (view === "home" || view === "looks" || !capture || analyzedShot.current === shot) return;
+    analyzedShot.current = shot;
+    setAnalysis(null);
+    setAnalyzing(true);
+    analyzeFace({ data: { photo: jpegDataUrl(capture.photo), lang } })
+      .then((result) => {
+        if (shotRef.current === shot) setAnalysis(result);
+      })
+      .catch(() => undefined)
+      .finally(() => {
+        if (shotRef.current === shot) setAnalyzing(false);
+      });
+  }, [view, capture, shot, lang]);
+
+  // --- Navegación con el historial: el gesto "atrás" del móvil vuelve a la pantalla anterior.
+  const viewRef = useRef<View>("home");
+  viewRef.current = view;
+  const ready = useRef({ situation, capture, chosen });
+  ready.current = { situation, capture, chosen };
+
+  const go = useCallback((next: View) => {
+    if (viewRef.current === next) return;
+    viewRef.current = next;
+    try {
+      window.history.pushState({ ...(window.history.state ?? {}), neusta: next }, "");
+    } catch {
+      /* sin historial: navegamos igual */
+    }
+    setView(next);
+  }, []);
+
+  useEffect(() => {
+    try {
+      window.history.replaceState({ ...(window.history.state ?? {}), neusta: "home" }, "");
+    } catch {
+      /* ignore */
+    }
+    const onPop = (event: PopStateEvent) => {
+      const wanted = (event.state as { neusta?: View } | null)?.neusta ?? "home";
+      const { situation: s, capture: c, chosen: ch } = ready.current;
+      const ok =
+        wanted === "home" ||
+        wanted === "looks" ||
+        wanted === "scan" ||
+        (wanted === "occasion" && Boolean(c)) ||
+        (wanted === "kit" && Boolean(s && c)) ||
+        (wanted === "options" && Boolean(s && c)) ||
+        (wanted === "steps" && Boolean(s && ch));
+      setView(ok ? wanted : "home");
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
+
+  useEffect(() => {
+    window.scrollTo({ top: 0 });
+  }, [view]);
+
+  const activeTab: NavTab = view === "home" ? "home" : view === "looks" ? "looks" : "create";
+
+  function navigate(tab: NavTab) {
+    if (tab === "home") go("home");
+    else if (tab === "create") go("scan");
+    else {
+      setLooksKey((value) => value + 1);
+      go("looks");
+    }
   }
 
   return (
     <div className="app-shell">
-      <header className="sticky top-0 z-20 border-b border-line/50 bg-surface/70 shadow-sm backdrop-blur-md">
-        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
-          <button type="button" onClick={() => setView("home")} className="font-display text-xl tracking-wide">
-            NEUSTA
-          </button>
-          <nav className="flex items-center gap-1">
-            {view !== "home" ? (
-              <button
-                type="button"
-                onClick={() =>
-                  setView(
-                    view === "directory"
-                      ? backTo
-                      : view === "feedback"
-                        ? "steps"
-                        : view === "steps"
-                          ? "options"
-                          : view === "options"
-                            ? "scan"
-                            : view === "scan"
-                              ? "kit"
-                              : view === "kit"
-                                ? "occasion"
-                                : "home",
-                  )
-                }
-                className="inline-flex min-h-11 items-center gap-1 px-3 text-sm"
-              >
-                <ArrowLeft className="size-4" aria-hidden="true" />
-                Volver
-              </button>
-            ) : null}
-            <button type="button" onClick={openDirectory} className="min-h-11 px-3 text-sm">
-              Directorio
-            </button>
-          </nav>
-        </div>
+      <header className="app-title-bar sticky top-0 z-20">
+        <button type="button" onClick={() => go("home")} className="app-title">
+          NEUSTA
+        </button>
       </header>
-
-      {view === "home" && (
-        <HomeScreen
-          counts={directory?.counts ?? null}
-          catalogError={catalogError}
-          onStart={() => setView("occasion")}
-          onDirectory={openDirectory}
-        />
+      {signOutError && (
+        <p role="alert" className="px-4 py-2 text-sm">
+          {signOutError}
+        </p>
       )}
-      {view === "occasion" && (
+      {view === "home" ? <HomeScreen onStart={() => go("scan")} /> : null}
+      {view === "occasion" ? (
         <OccasionScreen
           onPick={(id) => {
             setSituation(id);
+            ready.current.situation = id;
             setPlan(null);
-            setView("kit");
+            setCards(null);
+            setCardsError(null);
+            setChosen(null);
+            go("kit");
           }}
         />
-      )}
-      {view === "kit" && (
+      ) : null}
+      {view === "kit" ? (
         <KitScreen
+          initial={kitDraft}
+          onDraft={setKitDraft}
           onContinue={(person) => {
             setProfile(person);
             setCards(null);
             setCardsError(null);
             setChosen(null);
-            setView("scan");
+            go("options");
           }}
         />
-      )}
-      {view === "scan" && (
+      ) : null}
+      {view === "scan" ? (
         <ScannerScreen
           onCapture={(next) => {
             setCapture(next);
@@ -211,64 +328,86 @@ export function AtelierApp() {
             setCardsError(null);
             setChosen(null);
             setSeen({ skin: "", fromPhoto: false });
-            setShot((v) => v + 1);
-            setView("options");
+            ready.current.capture = next;
+            setShot((value) => value + 1);
+            go("occasion");
           }}
         />
-      )}
-      {view === "options" && situation && (
+      ) : null}
+      {view === "options" && aiNote.includes("limite-diario") ? (
+        <p className="mx-auto mt-3 max-w-md rounded-2xl bg-white/70 px-4 py-3 text-center text-sm text-ink">
+          {t("opt.limit")}
+        </p>
+      ) : null}
+      {view === "options" &&
+      aiNote &&
+      aiNote !== "ok" &&
+      !aiNote.includes("limite-diario") &&
+      import.meta.env.DEV ? (
+        <p className="mx-auto max-w-6xl px-4 pt-2 text-center text-xs text-muted">
+          IA no disponible: {aiNote}
+        </p>
+      ) : null}
+      {view === "options" && situation ? (
         <OptionsScreen
           situation={situation}
           read={capture?.read ?? null}
-          summary={profile ? personLine(profile) : ""}
-          skinLine={profile?.skin ? `Tu piel: ${profile.skin}` : seen.skin ? `En la foto: ${seen.skin}` : ""}
+          analysis={analysis}
+          analyzing={analyzing}
+          aiPending={(cardId) => !(aiKey(cardId) in aiImages)}
+          photo={capture ? jpegDataUrl(capture.photo) : ""}
+          summary={profile ? profile.tastes.map((id) => t(`taste.${id}`)).join(", ") : ""}
+          skinLine={
+            profile?.skin
+              ? t("opt.skinLine", { skin: profile.skin })
+              : seen.fromPhoto && seen.skin
+                ? t("opt.skinPhoto", { skin: seen.skin })
+                : ""
+          }
           readingSkin={!profile?.skin}
-          cards={cards}
+          cards={shownCards}
           loading={cardsLoading}
           error={cardsError}
           onRetry={() => {
             setCards(null);
             setCardsError(null);
-            setShot((v) => v + 1);
           }}
           onChoose={(card) => {
+            const key = `${shot}:${card.id}`;
+            if (!savedIds.current.has(key)) savedIds.current.set(key, crypto.randomUUID());
+            setSavedNote(false);
             setChosen(card);
-            setView("steps");
+            ready.current.chosen = card;
+            go("steps");
           }}
         />
-      )}
-      {view === "steps" && situation && chosen && (
-        <>
-          <StepsScreen
-            situation={situation}
-            card={chosen}
-            plan={plan}
-            error={planError}
-            onRetry={loadPlan}
-            ownedZones={noteZones(profile?.note ?? "")}
-            note={profile?.note ?? ""}
-            skin={profile?.skin || seen.skin}
-            skinFromPhoto={!profile?.skin && seen.fromPhoto}
-            kit={profile?.kit ?? null}
-            summary={profile ? personLine(profile) : ""}
-          />
-          <div className="mx-auto max-w-md px-5 pb-10">
-            <button
-              type="button"
-              onClick={() => setView("feedback")}
-              className="w-full min-h-12 rounded-full border border-blush/40 bg-blush/10 text-blush"
-            >
-              ¿Qué te pareció este look?
-            </button>
-          </div>
-        </>
-      )}
-      {view === "feedback" && <FeedbackScreen onDone={() => setView("home")} />}
-      {view === "directory" && (
-        <DirectoryScreen directory={directory} error={catalogError} onRetry={loadDirectory} />
-      )}
-
-      <InstallBanner />
+      ) : null}
+      {view === "steps" && situation && chosen ? (
+        <StepsScreen
+          situation={situation}
+          card={chosen}
+          plan={plan}
+          error={planError}
+          onRetry={loadPlan}
+          ownedZones={noteZones(profile?.note ?? "")}
+          note={profile?.note ?? ""}
+          skin={profile?.skin || seen.skin}
+          skinFromPhoto={!profile?.skin && seen.fromPhoto}
+          kit={profile?.kit ?? null}
+          summary={profile ? profile.tastes.map((id) => t(`taste.${id}`)).join(", ") : ""}
+          photo={capture?.source === "camera" ? jpegDataUrl(capture.photo) : undefined}
+          saved={savedNote}
+        />
+      ) : null}
+      {view === "looks" ? <MyLooksScreen key={looksKey} onCreate={() => go("scan")} /> : null}
+      <BottomNav
+        active={activeTab}
+        onNavigate={navigate}
+        onSignOut={() => {
+          setSignOutError("");
+          void signOut().catch(() => setSignOutError(t("common.signOutError")));
+        }}
+      />
     </div>
   );
 }

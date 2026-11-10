@@ -15,6 +15,11 @@ export default tseslint.config(
       ".nitro/**",
       "node_modules/**",
       "src/routeTree.gen.ts",
+      // Código de terceros ya compilado (MediaPipe) y scripts de skills: no es código de la app.
+      "public/vision/**",
+      ".agents/**",
+      ".claude/**",
+      ".grok/**",
     ],
   },
   js.configs.recommended,

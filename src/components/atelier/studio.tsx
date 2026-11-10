@@ -35,12 +35,14 @@ export function StudioScreen({
   plan,
   error,
   onRetry,
+  onContinue,
 }: {
   situation: SituationId;
   capture: Capture;
   plan: LookPlan | null;
   error: string | null;
   onRetry: () => void;
+  onContinue: () => void;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [recipe, setRecipe] = useState<Recipe | null>(null);
@@ -85,7 +87,9 @@ export function StudioScreen({
 
   function swapShade(step: Step, product: Product) {
     setSteps((current) =>
-      current.map((item) => (item.order === step.order ? { ...item, product, tension: false } : item)),
+      current.map((item) =>
+        item.order === step.order ? { ...item, product, tension: false } : item,
+      ),
     );
     if (step.zone === "fijador") return;
     const zone = step.zone;
@@ -102,18 +106,22 @@ export function StudioScreen({
   }
 
   return (
-    <div className="mx-auto max-w-6xl px-4 pb-16 pt-8">
+    <div className="mx-auto max-w-6xl px-4 pb-28 pt-8">
       <p className="text-xs tracking-widest text-muted uppercase">{occasion.label}</p>
       <h1 data-testid="look-title" className="mt-3 text-4xl sm:text-6xl">
         {plan ? plan.title : "Maquillando tu cara"}
       </h1>
       <p className="mt-4 max-w-2xl text-muted">
         {plan
-          ? `Ya está puesto. ${plan.promise}`
-          : (error ?? "Encontré el rostro. Estoy eligiendo el maquillaje y aplicándolo.")}
+          ? `Representación virtual generada para tu rostro. ${plan.promise}`
+          : (error ?? "Estoy ajustando el maquillaje a tu rostro y a la ocasión.")}
       </p>
       {error ? (
-        <button type="button" onClick={onRetry} className="mt-4 min-h-11 rounded-full bg-ink px-5 text-surface">
+        <button
+          type="button"
+          onClick={onRetry}
+          className="mt-4 min-h-11 rounded-full bg-ink px-5 text-surface"
+        >
           Reintentar
         </button>
       ) : null}
@@ -235,7 +243,8 @@ export function StudioScreen({
                         {step.product.brandName} · {step.product.name}
                       </p>
                       <p className="text-sm text-muted tabular-nums">
-                        {step.product.shade} · {step.product.finish} · {Math.round(step.product.priceEur)} €
+                        {step.product.shade} · {step.product.finish} ·{" "}
+                        {Math.round(step.product.priceEur)} €
                       </p>
                       {step.tension ? (
                         <p className="mt-2 text-sm text-blush">
@@ -280,9 +289,21 @@ export function StudioScreen({
             })}
           </ul>
           <p className="mt-8 text-sm text-muted">
-            Es maquillaje virtual sobre la foto, no producto en la piel. El catálogo no vende ni reserva estilistas.
+            Es maquillaje virtual sobre la foto, no producto en la piel. El catálogo no vende ni
+            reserva estilistas.
           </p>
         </div>
+      </div>
+      <div className="app-fixed-bar px-5 py-3">
+        <button
+          type="button"
+          data-testid="studio-continue"
+          disabled={!plan}
+          onClick={onContinue}
+          className="home-cta min-h-12 w-full px-6 text-sm font-medium"
+        >
+          Ver los pasos de mi look
+        </button>
       </div>
     </div>
   );

@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import { authMiddleware } from "@/lib/auth/middleware";
 import { z } from "zod";
 import { getSql } from "@/lib/db";
 import { noteMatchesProduct, type AgeId, type TasteId } from "@/lib/makeup/profile";
@@ -35,9 +36,12 @@ const recommendSchema = z.object({
   shape: z.enum(["ovalado", "redondo", "cuadrado", "corazon", "alargado"]),
   owned: z.array(z.string().max(40)).max(60),
   age: z.enum(["menor", "joven", "treinta", "cuarenta", "madura", "silver"]),
-  tastes: z.array(z.enum(["natural", "poco", "color", "luminosa", "mate", "ceja", "labio", "ojo"])).max(8),
+  tastes: z
+    .array(z.enum(["natural", "poco", "color", "luminosa", "mate", "ceja", "labio", "ojo"]))
+    .max(8),
   note: z.string().max(800),
   skin: z.string().max(300),
+  lang: z.enum(["es", "en", "it"]).optional(),
 });
 
 type ProductRow = {
@@ -158,16 +162,27 @@ function scoreProduct(
   if (product.priceEur > 20) score -= 8;
   if (age === "menor" && product.priceEur > 14) score -= 3;
   if ((age === "madura" || age === "silver") && product.finish.includes("metal")) score -= 6;
-  if ((age === "cuarenta" || age === "madura" || age === "silver") && /satinado|crema|luminoso|hidratante|brillo/.test(product.finish)) {
+  if (
+    (age === "cuarenta" || age === "madura" || age === "silver") &&
+    /satinado|crema|luminoso|hidratante|brillo/.test(product.finish)
+  ) {
     score += 2;
   }
   if (tastes.includes("mate") && product.finish.includes("mate")) score += 3;
-  if (tastes.includes("luminosa") && /luminoso|satinado|crema|brillo/.test(product.finish)) score += 3;
-  if (/seca|tirante|escama/.test(skin.toLowerCase()) && /crema|satinado|hidratante|luminoso|brillo/.test(product.finish)) {
+  if (tastes.includes("luminosa") && /luminoso|satinado|crema|brillo/.test(product.finish))
+    score += 3;
+  if (
+    /seca|tirante|escama/.test(skin.toLowerCase()) &&
+    /crema|satinado|hidratante|luminoso|brillo/.test(product.finish)
+  ) {
     score += 2;
   }
-  if (/grasa|poro|acne|acné|grano/.test(skin.toLowerCase()) && product.finish.includes("mate")) score += 2;
-  if (/acne|acné|grano|sensible|rosacea|rosácea/.test(skin.toLowerCase()) && product.finish.includes("cubriente")) {
+  if (/grasa|poro|acne|acné|grano/.test(skin.toLowerCase()) && product.finish.includes("mate"))
+    score += 2;
+  if (
+    /acne|acné|grano|sensible|rosacea|rosácea/.test(skin.toLowerCase()) &&
+    product.finish.includes("cubriente")
+  ) {
     score -= 3;
   }
   if (product.undertone === undertone) score += 4;
@@ -186,10 +201,18 @@ function scoreProduct(
 }
 
 function hasTension(product: Product, undertone: Undertone) {
-  if (product.category === "base" || product.category === "contorno" || product.category === "fijador") {
+  if (
+    product.category === "base" ||
+    product.category === "contorno" ||
+    product.category === "fijador"
+  ) {
     return false;
   }
-  if (product.undertone === "universal" || product.undertone === "neutro" || undertone === "neutro") {
+  if (
+    product.undertone === "universal" ||
+    product.undertone === "neutro" ||
+    undertone === "neutro"
+  ) {
     return false;
   }
   return product.undertone !== undertone;
@@ -201,77 +224,147 @@ const REMAP_BRAND: Partial<Record<ZoneId, "look" | string>> = {
   iluminador: "essence",
 };
 
-export const getDirectory = createServerFn({ method: "GET" }).handler(async (): Promise<Directory> => {
-  const sql = await getSql();
-  const brands = await sql<{
-    id: string;
-    name: string;
-    origin: string;
-    note: string;
-    tier: string;
-    product_count: number;
-  }>`
+export const getDirectory = createServerFn({ method: "GET" })
+  .middleware([authMiddleware])
+  .handler(async (): Promise<Directory> => {
+    const sql = await getSql();
+    const brands = await sql<{
+      id: string;
+      name: string;
+      origin: string;
+      note: string;
+      tier: string;
+      product_count: number;
+    }>`
     select b.id, b.name, b.origin, b.note, b.tier,
            (select count(*) from products p where p.brand_id = b.id) as product_count
     from brands b
     order by b.name
   `;
-  const stylists = await sql<{
-    id: string;
-    name: string;
-    city: string;
-    focus: string;
-    signature: string;
-    years: number;
-  }>`
+    const stylists = await sql<{
+      id: string;
+      name: string;
+      city: string;
+      focus: string;
+      signature: string;
+      years: number;
+    }>`
     select id, name, city, focus, signature, years
     from stylists
     order by name
   `;
-  const counts = await sql<{
-    brands: number;
-    stylists: number;
-    products: number;
-    looks: number;
-  }>`
+    const counts = await sql<{
+      brands: number;
+      stylists: number;
+      products: number;
+      looks: number;
+    }>`
     select
       (select count(*) from brands) as brands,
       (select count(*) from stylists) as stylists,
       (select count(*) from products) as products,
       (select count(*) from looks) as looks
   `;
-  const tally = counts[0] ?? { brands: 0, stylists: 0, products: 0, looks: 0 };
-  const productRows = await sql<ProductRow>`
+    const tally = counts[0] ?? { brands: 0, stylists: 0, products: 0, looks: 0 };
+    const productRows = await sql<ProductRow>`
     select p.id, p.brand_id, b.name as brand_name, p.name, p.category, p.finish,
            p.shade, p.hex, p.undertone, p.depth, p.price_eur
     from products p
     join brands b on b.id = p.brand_id
     order by p.category, b.name, p.shade
   `;
-  return {
-    brands: brands.map((brand) => ({
-      id: brand.id,
-      name: brand.name,
-      origin: brand.origin,
-      note: brand.note,
-      tier: brand.tier,
-      productCount: Number(brand.product_count),
-    })),
-    stylists: stylists.map((stylist) => ({
-      ...stylist,
-      years: Number(stylist.years),
-    })),
-    counts: {
-      brands: Number(tally.brands),
-      stylists: Number(tally.stylists),
-      products: Number(tally.products),
-      looks: Number(tally.looks),
-    },
-    products: productRows.map(mapProduct),
-  };
-});
+    return {
+      brands: brands.map((brand) => ({
+        id: brand.id,
+        name: brand.name,
+        origin: brand.origin,
+        note: brand.note,
+        tier: brand.tier,
+        productCount: Number(brand.product_count),
+      })),
+      stylists: stylists.map((stylist) => ({
+        ...stylist,
+        years: Number(stylist.years),
+      })),
+      counts: {
+        brands: Number(tally.brands),
+        stylists: Number(tally.stylists),
+        products: Number(tally.products),
+        looks: Number(tally.looks),
+      },
+      products: productRows.map(mapProduct),
+    };
+  });
+
+const translationCache = new Map<string, string>();
+const LANGUAGE_NAME = { en: "English", it: "Italian" } as const;
+
+/**
+ * Traduce textos del catálogo con xAI. Guarda en memoria lo ya traducido y,
+ * si algo falla, devuelve el texto original para no romper la pantalla.
+ */
+async function translateTexts(texts: string[], lang: "en" | "it"): Promise<string[]> {
+  const key = process.env.XAI_API_KEY;
+  const missing = [
+    ...new Set(texts.filter((text) => text && !translationCache.has(`${lang}:${text}`))),
+  ];
+  if (key && missing.length) {
+    try {
+      const response = await fetch("https://api.x.ai/v1/responses", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
+        signal: AbortSignal.timeout(20_000),
+        body: JSON.stringify({
+          model: "grok-4.3",
+          store: false,
+          reasoning: { effort: "none" },
+          input: [
+            {
+              role: "user",
+              content: [
+                {
+                  type: "input_text",
+                  text:
+                    `Translate each Spanish makeup instruction in this JSON array into natural ${LANGUAGE_NAME[lang]}, ` +
+                    "keeping the tone of a professional makeup artist and keeping product names unchanged. " +
+                    "Reply ONLY with a JSON array of strings, same length and order.\n" +
+                    JSON.stringify(missing),
+                },
+              ],
+            },
+          ],
+        }),
+      });
+      if (response.ok) {
+        const { textFromResponse } = await import("./analysis");
+        const raw = textFromResponse(await response.json());
+        const match = raw.match(/\[[\s\S]*\]/);
+        const list = match ? (JSON.parse(match[0]) as unknown[]) : [];
+        console.log(`[xai] traducción de ${missing.length} textos (${lang})`);
+        if (list.length === missing.length) {
+          missing.forEach((text, index) => {
+            const value = list[index];
+            if (typeof value === "string" && value.trim())
+              translationCache.set(`${lang}:${text}`, value.trim());
+          });
+        } else {
+          console.error(`[recommend] traducción incompleta (${list.length}/${missing.length})`);
+        }
+      } else {
+        console.error("[recommend] traducción falló", response.status);
+      }
+    } catch (error) {
+      console.error(
+        "[recommend] traducción falló",
+        error instanceof Error ? error.message : String(error),
+      );
+    }
+  }
+  return texts.map((text) => translationCache.get(`${lang}:${text}`) ?? text);
+}
 
 export const recommendLook = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
   .validator(recommendSchema)
   .handler(async ({ data }): Promise<LookPlan> => {
     const sql = await getSql();
@@ -358,6 +451,18 @@ export const recommendLook = createServerFn({ method: "POST" })
       alternates[zone] = unique.slice(0, 6);
     }
 
+    // El catálogo está en español: si la usuaria eligió otro idioma, se traducen los textos visibles.
+    let stylistSignature = look.signature;
+    if (data.lang && data.lang !== "es") {
+      const texts = [look.signature, ...steps.flatMap((step) => [step.title, step.instruction])];
+      const translated = await translateTexts(texts, data.lang);
+      stylistSignature = translated[0];
+      steps.forEach((step, index) => {
+        step.title = translated[1 + index * 2];
+        step.instruction = translated[2 + index * 2];
+      });
+    }
+
     return {
       id: look.id,
       situation: look.situation,
@@ -369,7 +474,7 @@ export const recommendLook = createServerFn({ method: "POST" })
         name: look.stylist_name,
         city: look.city,
         focus: look.focus,
-        signature: look.signature,
+        signature: stylistSignature,
         years: Number(look.years),
       },
       intensities: tuneIntensities(parseIntensities(look.intensities), shape, depth),

@@ -1,13 +1,9 @@
+import { FeedbackForm } from "@/components/atelier/feedback";
 import { hersForZone, type PersonBrief } from "@/lib/makeup/profile";
 import { optionById, visibleZones, type OptionId } from "@/lib/makeup/references";
-import {
-  ZONE_LABEL,
-  type LookPlan,
-  type SituationId,
-  type ZoneId,
-  situationById,
-} from "@/lib/makeup/types";
+import type { LookPlan, SituationId, ZoneId } from "@/lib/makeup/types";
 import type { ReferenceCard } from "@/lib/makeup/imagine";
+import { useLang } from "@/lib/i18n";
 
 export function StepsScreen({
   situation,
@@ -21,6 +17,8 @@ export function StepsScreen({
   skinFromPhoto,
   kit,
   summary,
+  photo,
+  saved,
 }: {
   situation: SituationId;
   card: ReferenceCard;
@@ -33,30 +31,35 @@ export function StepsScreen({
   skinFromPhoto: boolean;
   kit: PersonBrief["kit"] | null;
   summary: string;
+  /** Su foto en JPEG si la hizo con la cámara, para adjuntarla a la reseña. */
+  photo?: string;
+  /** El look ya quedó guardado en «Mis looks». */
+  saved?: boolean;
 }) {
-  const occasion = situationById(situation);
+  const { t } = useLang();
   const option = optionById(situation, card.id as OptionId);
   const zones = visibleZones(option, ownedZones);
   const steps = (plan?.steps ?? []).filter((step) => zones.includes(step.zone));
 
   return (
     <div className="mx-auto max-w-6xl px-4 pb-16 pt-8">
-      <p className="text-xs tracking-widest text-muted uppercase">
-        {occasion.label} · {card.title}
-      </p>
-      <h1 data-testid="look-title" className="mt-3 text-4xl sm:text-6xl">
-        {card.title}
+      <p className="step-eyebrow text-center">{t("steps.eyebrow")}</p>
+      <h1 data-testid="look-title" className="mt-3 text-center text-4xl">
+        {t(`level.${card.id}`)}
       </h1>
-      <p className="mt-4 max-w-2xl text-muted">{card.line}</p>
+      <div className="hair" />
+      <p className="mx-auto max-w-2xl text-center text-sm text-muted">
+        {t(`sit.${situation}`)} · {t(`line.${situation}.${card.id}`)}
+      </p>
       {summary ? <p className="mt-2 text-sm">{summary}</p> : null}
       {note ? (
         <p className="mt-4 max-w-2xl rounded-2xl border border-line bg-surface px-4 py-3 text-sm">
-          Lo que usas: {note}
+          {t("steps.using", { note })}
         </p>
       ) : null}
       {skin ? (
         <p className="mt-3 max-w-2xl rounded-2xl border border-line bg-surface px-4 py-3 text-sm">
-          {skinFromPhoto ? "En la foto, no es un diagnóstico" : "Tu piel"}: {skin}
+          {skinFromPhoto ? t("steps.skinPhoto") : t("steps.skinYours")}: {skin}
         </p>
       ) : null}
 
@@ -68,59 +71,55 @@ export function StepsScreen({
             data-testid="reference-image"
             className="w-full rounded-2xl border border-line object-cover"
           />
-          <p className="mt-3 text-sm text-muted">
-            Referencia de cómo quedaría. No es un filtro puesto encima de la foto.
-          </p>
+          <p className="mt-3 text-sm text-muted">{t("steps.reference")}</p>
+          {saved ? (
+            <p className="mt-2 text-sm font-medium text-blush" role="status">
+              ✓ {t("saved.done")}
+            </p>
+          ) : null}
         </div>
         <div>
           {error ? (
-            <button type="button" onClick={onRetry} className="min-h-11 rounded-full bg-ink px-5 text-surface">
-              Reintentar los productos
+            <button
+              type="button"
+              onClick={onRetry}
+              className="min-h-11 rounded-full bg-ink px-5 text-surface"
+            >
+              {t("steps.retry")}
             </button>
           ) : null}
           {plan ? (
-            <aside className="rounded-2xl border border-line bg-surface p-5">
-              <p className="text-xs tracking-widest text-muted uppercase">Estilista</p>
+            <aside className="glass rounded-[1.6rem] p-5 text-center">
+              <p className="text-xs tracking-widest text-muted uppercase">{t("steps.stylist")}</p>
               <h2 className="mt-2 text-3xl">{plan.stylist.name}</h2>
               <p className="text-sm text-muted">
-                {plan.stylist.city} · {plan.stylist.years} años
+                {plan.stylist.city} · {t("common.years", { n: plan.stylist.years })}
               </p>
               <p className="mt-3">{plan.stylist.signature}</p>
             </aside>
           ) : (
-            <p className="text-sm text-muted">Buscando los productos de esta opción.</p>
+            <p className="text-sm text-muted">{t("steps.searching")}</p>
           )}
-          <h2 className="mt-8 text-2xl">Pasos y productos</h2>
+          <h2 className="mt-8 text-2xl">{t("steps.title")}</h2>
           <ol className="mt-4 flex flex-col gap-3">
             {steps.map((step, index) => (
               <li key={step.order} className="rounded-2xl border border-line bg-surface px-4 py-4">
                 <p className="text-xs tracking-widest text-muted uppercase">
-                  {index + 1} · {ZONE_LABEL[step.zone]}
+                  {index + 1} · {t(`zone.${step.zone}`)}
                 </p>
                 <p className="mt-1 font-display text-2xl">{step.title}</p>
                 <p className="mt-2 text-sm">{step.instruction}</p>
                 {(() => {
-                  const hers = kit ? hersForZone({ age: "joven", tastes: [], note, skin, kit }, step.zone) : "";
-                  return hers ? (
-                    <p className="mt-3 text-sm">Usa lo que ya tienes: {hers}</p>
-                  ) : (
-                    <>
-                      <p className="mt-3 text-sm text-muted">Si te falta, uno de droguería:</p>
-                      <p className="text-sm">
-                        {step.product.brandName} · {step.product.name}
-                      </p>
-                      <p className="text-sm text-muted tabular-nums">
-                        {step.product.shade} · {step.product.finish} · {Math.round(step.product.priceEur)} €
-                      </p>
-                    </>
-                  );
+                  const hers = kit
+                    ? hersForZone({ age: "joven", tastes: [], note, skin, kit }, step.zone)
+                    : "";
+                  return hers ? <p className="mt-3 text-sm">{t("steps.yours", { hers })}</p> : null;
                 })()}
               </li>
             ))}
           </ol>
-          <p className="mt-8 text-sm text-muted">
-            El catálogo no vende ni reserva estilistas. El orden es para repetir la referencia en la piel.
-          </p>
+          <p className="mt-8 text-sm text-muted">{t("steps.note")}</p>
+          <FeedbackForm situation={situation} look={card.title} photo={photo} />
         </div>
       </div>
     </div>

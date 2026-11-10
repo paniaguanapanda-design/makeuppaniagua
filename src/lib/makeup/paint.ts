@@ -23,7 +23,62 @@ export type Recipe = {
 export type MakeupSubject = {
   situation: SituationId;
   read: FaceRead | null;
+  /** 0 = natural. 1 = referencia visible para comparar looks. */
+  boost?: number;
+  /** Nivel del look: marca cuánto se ve cada técnica. */
+  level?: LookLevel;
 };
+
+export type LookLevel = "natural" | "medio" | "glam";
+
+/** Mínimos de técnica por nivel, para que los tres looks se parezcan a lo que genera la IA. */
+const LEVEL_FLOOR: Record<LookLevel, Partial<Technique>> = {
+  natural: { blush: 0.4, lipCover: 0.45, brow: 0.5, smooth: 0.26, underEye: 0.35, pigment: 0.4 },
+  medio: {
+    blush: 0.55,
+    lipCover: 0.72,
+    brow: 0.62,
+    contour: 0.45,
+    light: 0.5,
+    eyeSmoke: 0.45,
+    eyeLiner: 0.45,
+    eyeGloss: 0.12,
+    smooth: 0.3,
+    underEye: 0.4,
+    pigment: 0.58,
+  },
+  glam: {
+    blush: 0.62,
+    lipCover: 0.92,
+    lipGloss: 0.35,
+    brow: 0.72,
+    contour: 0.68,
+    light: 0.62,
+    eyeSmoke: 0.88,
+    eyeLiner: 0.92,
+    eyeGloss: 0.25,
+    smooth: 0.34,
+    underEye: 0.45,
+    pigment: 0.78,
+  },
+};
+
+/** Cuánto pueden subir los máximos de opacidad en cada nivel. */
+const LEVEL_SCALE: Record<LookLevel, number> = { natural: 1.1, medio: 1.4, glam: 1.75 };
+
+// Escala de opacidad del look que se está pintando (el pintado es síncrono).
+let capScale = 1;
+const cap = (limit: number) => Math.min(0.95, limit * capScale);
+
+function withLevel(base: Technique, level: LookLevel | undefined): Technique {
+  if (!level) return base;
+  const floor = LEVEL_FLOOR[level];
+  const next = { ...base };
+  (Object.keys(floor) as (keyof Technique)[]).forEach((key) => {
+    next[key] = Math.max(base[key], floor[key] ?? 0);
+  });
+  return next;
+}
 
 type Technique = {
   smooth: number;
@@ -43,44 +98,124 @@ type Technique = {
 
 const TECHNIQUE: Record<SituationId, Technique> = {
   dia: {
-    smooth: 0.22, veil: 0.16, contour: 0.32, blush: 0.42,
-    eyeSmoke: 0.1, eyeLiner: 0.12, eyeGloss: 0.04,
-    lipCover: 0.38, lipGloss: 0.22, brow: 0.32, light: 0.32, underEye: 0.22, pigment: 0.34,
+    smooth: 0.22,
+    veil: 0.16,
+    contour: 0.32,
+    blush: 0.42,
+    eyeSmoke: 0.1,
+    eyeLiner: 0.12,
+    eyeGloss: 0.04,
+    lipCover: 0.38,
+    lipGloss: 0.22,
+    brow: 0.32,
+    light: 0.32,
+    underEye: 0.22,
+    pigment: 0.34,
   },
   oficina: {
-    smooth: 0.18, veil: 0.12, contour: 0.22, blush: 0.22,
-    eyeSmoke: 0.06, eyeLiner: 0.2, eyeGloss: 0,
-    lipCover: 0.52, lipGloss: 0.08, brow: 0.72, light: 0.14, underEye: 0.28, pigment: 0.4,
+    smooth: 0.18,
+    veil: 0.12,
+    contour: 0.22,
+    blush: 0.22,
+    eyeSmoke: 0.06,
+    eyeLiner: 0.2,
+    eyeGloss: 0,
+    lipCover: 0.52,
+    lipGloss: 0.08,
+    brow: 0.72,
+    light: 0.14,
+    underEye: 0.28,
+    pigment: 0.4,
   },
   entrevista: {
-    smooth: 0.2, veil: 0.1, contour: 0.24, blush: 0.2,
-    eyeSmoke: 0.05, eyeLiner: 0.16, eyeGloss: 0.02,
-    lipCover: 0.6, lipGloss: 0.14, brow: 0.78, light: 0.26, underEye: 0.55, pigment: 0.36,
+    smooth: 0.2,
+    veil: 0.1,
+    contour: 0.24,
+    blush: 0.2,
+    eyeSmoke: 0.05,
+    eyeLiner: 0.16,
+    eyeGloss: 0.02,
+    lipCover: 0.6,
+    lipGloss: 0.14,
+    brow: 0.78,
+    light: 0.26,
+    underEye: 0.55,
+    pigment: 0.36,
   },
   cita: {
-    smooth: 0.26, veil: 0.2, contour: 0.5, blush: 0.48,
-    eyeSmoke: 0.32, eyeLiner: 0.38, eyeGloss: 0.22,
-    lipCover: 0.58, lipGloss: 0.48, brow: 0.42, light: 0.4, underEye: 0.32, pigment: 0.46,
+    smooth: 0.26,
+    veil: 0.2,
+    contour: 0.5,
+    blush: 0.48,
+    eyeSmoke: 0.32,
+    eyeLiner: 0.38,
+    eyeGloss: 0.22,
+    lipCover: 0.58,
+    lipGloss: 0.48,
+    brow: 0.42,
+    light: 0.4,
+    underEye: 0.32,
+    pigment: 0.46,
   },
   boda: {
-    smooth: 0.3, veil: 0.22, contour: 0.4, blush: 0.46,
-    eyeSmoke: 0.3, eyeLiner: 0.36, eyeGloss: 0.3,
-    lipCover: 0.6, lipGloss: 0.42, brow: 0.48, light: 0.74, underEye: 0.4, pigment: 0.5,
+    smooth: 0.3,
+    veil: 0.22,
+    contour: 0.4,
+    blush: 0.46,
+    eyeSmoke: 0.3,
+    eyeLiner: 0.36,
+    eyeGloss: 0.3,
+    lipCover: 0.6,
+    lipGloss: 0.42,
+    brow: 0.48,
+    light: 0.74,
+    underEye: 0.4,
+    pigment: 0.5,
   },
   fiesta: {
-    smooth: 0.28, veil: 0.24, contour: 0.58, blush: 0.36,
-    eyeSmoke: 0.88, eyeLiner: 0.92, eyeGloss: 0.34,
-    lipCover: 0.84, lipGloss: 0.3, brow: 0.58, light: 0.18, underEye: 0.16, pigment: 0.72,
+    smooth: 0.28,
+    veil: 0.24,
+    contour: 0.58,
+    blush: 0.36,
+    eyeSmoke: 0.88,
+    eyeLiner: 0.92,
+    eyeGloss: 0.34,
+    lipCover: 0.84,
+    lipGloss: 0.3,
+    brow: 0.58,
+    light: 0.18,
+    underEye: 0.16,
+    pigment: 0.72,
   },
   fotos: {
-    smooth: 0.34, veil: 0.18, contour: 0.48, blush: 0.34,
-    eyeSmoke: 0.26, eyeLiner: 0.34, eyeGloss: 0.12,
-    lipCover: 0.56, lipGloss: 0.18, brow: 0.5, light: 0.7, underEye: 0.58, pigment: 0.44,
+    smooth: 0.34,
+    veil: 0.18,
+    contour: 0.48,
+    blush: 0.34,
+    eyeSmoke: 0.26,
+    eyeLiner: 0.34,
+    eyeGloss: 0.12,
+    lipCover: 0.56,
+    lipGloss: 0.18,
+    brow: 0.5,
+    light: 0.7,
+    underEye: 0.58,
+    pigment: 0.44,
   },
   editorial: {
-    smooth: 0.14, veil: 0.1, contour: 0.68, blush: 0.28,
-    eyeSmoke: 0.82, eyeLiner: 0.96, eyeGloss: 0.08,
-    lipCover: 0.92, lipGloss: 0.12, brow: 0.8, light: 0.12, underEye: 0.1, pigment: 0.8,
+    smooth: 0.14,
+    veil: 0.1,
+    contour: 0.68,
+    blush: 0.28,
+    eyeSmoke: 0.82,
+    eyeLiner: 0.96,
+    eyeGloss: 0.08,
+    lipCover: 0.92,
+    lipGloss: 0.12,
+    brow: 0.8,
+    light: 0.12,
+    underEye: 0.1,
+    pigment: 0.8,
   },
 };
 
@@ -107,6 +242,22 @@ function placeOf(shape: FaceShape): Place {
   }
 }
 
+function boosted(base: Technique, boost: number): Technique {
+  if (boost <= 0) return base;
+  const up = (v: number) => Math.min(1, v * (1 + boost * 0.7) + boost * 0.08);
+  return {
+    ...base,
+    contour: up(base.contour),
+    blush: up(base.blush),
+    eyeSmoke: up(base.eyeSmoke),
+    eyeLiner: up(base.eyeLiner),
+    lipCover: base.lipCover,
+    brow: up(base.brow),
+    light: up(base.light),
+    pigment: Math.min(0.9, base.pigment + boost * 0.3),
+  };
+}
+
 function depthGain(depth: Depth) {
   if (depth === "clara") return 0.78;
   if (depth === "profunda") return 1.16;
@@ -116,10 +267,18 @@ function depthGain(depth: Depth) {
 function wear(product: RGB, skin: RGB, pigment: number, undertone: Undertone): RGB {
   let color = mix(skin, product, Math.min(0.9, Math.max(0.2, pigment)));
   if (undertone === "calido") {
-    color = mix(color, { r: Math.min(255, color.r + 18), g: color.g, b: Math.max(0, color.b - 14) }, 0.45);
+    color = mix(
+      color,
+      { r: Math.min(255, color.r + 18), g: color.g, b: Math.max(0, color.b - 14) },
+      0.45,
+    );
   }
   if (undertone === "frio") {
-    color = mix(color, { r: Math.max(0, color.r - 12), g: color.g, b: Math.min(255, color.b + 18) }, 0.45);
+    color = mix(
+      color,
+      { r: Math.max(0, color.r - 12), g: color.g, b: Math.min(255, color.b + 18) },
+      0.45,
+    );
   }
   return color;
 }
@@ -151,7 +310,9 @@ const FACE_OVAL = [
   10, 338, 297, 332, 284, 251, 389, 356, 454, 323, 361, 288, 397, 365, 379, 378, 400, 377, 152, 148,
   176, 149, 150, 136, 172, 58, 132, 93, 234, 127, 162, 21, 54, 103, 67, 109,
 ];
-const LIP_OUTER = [61, 146, 91, 181, 84, 17, 314, 405, 321, 375, 291, 409, 270, 269, 267, 0, 37, 39, 40, 185];
+const LIP_OUTER = [
+  61, 146, 91, 181, 84, 17, 314, 405, 321, 375, 291, 409, 270, 269, 267, 0, 37, 39, 40, 185,
+];
 const RIGHT_UPPER = [33, 246, 161, 160, 159, 158, 157, 173, 133];
 const LEFT_UPPER = [263, 466, 388, 387, 386, 385, 384, 398, 362];
 const RIGHT_LOWER = [33, 7, 163, 144, 145, 153, 154, 155, 133];
@@ -238,7 +399,14 @@ function blob(
   if (alpha <= 0.01 || rx < 1 || ry < 1) return;
   ctx.save();
   ctx.globalCompositeOperation = operation;
-  const gradient = ctx.createRadialGradient(center.x, center.y, Math.min(rx, ry) * 0.08, center.x, center.y, Math.max(rx, ry));
+  const gradient = ctx.createRadialGradient(
+    center.x,
+    center.y,
+    Math.min(rx, ry) * 0.08,
+    center.x,
+    center.y,
+    Math.max(rx, ry),
+  );
   gradient.addColorStop(0, rgba(color, alpha));
   gradient.addColorStop(0.62, rgba(color, alpha * 0.45));
   gradient.addColorStop(1, rgba(color, 0));
@@ -347,7 +515,16 @@ function paintBase(
       : mix(skin, { r: 226, g: 170, b: 138 }, 0.26);
   const under = tech.underEye * amount * gain;
   for (const index of [111, 340]) {
-    blob(ctx, px(lm, index, w, h), eye * 0.16, eye * 0.07, 0, peach, Math.min(0.16, under * 0.12), "soft-light");
+    blob(
+      ctx,
+      px(lm, index, w, h),
+      eye * 0.16,
+      eye * 0.07,
+      0,
+      peach,
+      Math.min(0.16, under * 0.12),
+      "soft-light",
+    );
   }
 }
 
@@ -366,7 +543,11 @@ function paintContour(
 ) {
   const vis = amount * tech.contour * gain * place.hollow;
   if (vis <= 0.02) return;
-  const color = mix(wear(rgbOf(hex), skin, tech.pigment * 0.7, undertone), { r: 96, g: 62, b: 44 }, 0.5);
+  const color = mix(
+    wear(rgbOf(hex), skin, tech.pigment * 0.7, undertone),
+    { r: 96, g: 62, b: 44 },
+    0.5,
+  );
   const eye = Math.max(18, dist(px(lm, 33, w, h), px(lm, 263, w, h)));
   const nose = px(lm, 1, w, h);
   const hollows: [number, number][] = [
@@ -381,11 +562,38 @@ function paintContour(
       y: cheek.y * 0.42 + jaw.y * 0.58,
     };
     const angle = Math.atan2(jaw.y - cheek.y, jaw.x - cheek.x);
-    blob(ctx, center, eye * 0.26, eye * 0.08, angle, color, Math.min(0.34, 0.1 + vis * 0.22), "multiply");
+    blob(
+      ctx,
+      center,
+      eye * 0.26,
+      eye * 0.08,
+      angle,
+      color,
+      Math.min(cap(0.34), (0.1 + vis * 0.22) * capScale),
+      "multiply",
+    );
   }
-  blob(ctx, { x: nose.x - eye * 0.08, y: nose.y }, eye * 0.045, eye * 0.16, 0, color, Math.min(0.22, vis * 0.16), "multiply");
-  blob(ctx, { x: nose.x + eye * 0.08, y: nose.y }, eye * 0.045, eye * 0.16, 0, color, Math.min(0.22, vis * 0.16), "multiply");
-  const jawAlpha = Math.min(0.2, vis * 0.12 * place.jaw);
+  blob(
+    ctx,
+    { x: nose.x - eye * 0.08, y: nose.y },
+    eye * 0.045,
+    eye * 0.16,
+    0,
+    color,
+    Math.min(cap(0.22), vis * 0.16 * capScale),
+    "multiply",
+  );
+  blob(
+    ctx,
+    { x: nose.x + eye * 0.08, y: nose.y },
+    eye * 0.045,
+    eye * 0.16,
+    0,
+    color,
+    Math.min(cap(0.22), vis * 0.16 * capScale),
+    "multiply",
+  );
+  const jawAlpha = Math.min(cap(0.2), vis * 0.12 * place.jaw * capScale);
   blob(ctx, px(lm, 172, w, h), eye * 0.16, eye * 0.08, 0.5, color, jawAlpha, "multiply");
   blob(ctx, px(lm, 397, w, h), eye * 0.16, eye * 0.08, -0.5, color, jawAlpha, "multiply");
 }
@@ -421,8 +629,26 @@ function paintBlush(
     const angle = Math.atan2(cheek.y - nose.y, cheek.x - nose.x);
     const rx = eye * (0.15 + tech.blush * 0.12);
     const ry = eye * (0.08 + tech.blush * 0.06);
-    blob(ctx, center, rx, ry, angle, color, Math.min(0.38, 0.12 + vis * 0.26), "soft-light");
-    blob(ctx, center, rx * 0.7, ry * 0.7, angle, color, Math.min(0.18, vis * 0.14), "multiply");
+    blob(
+      ctx,
+      center,
+      rx,
+      ry,
+      angle,
+      color,
+      Math.min(cap(0.38), (0.12 + vis * 0.26) * capScale),
+      "soft-light",
+    );
+    blob(
+      ctx,
+      center,
+      rx * 0.7,
+      ry * 0.7,
+      angle,
+      color,
+      Math.min(cap(0.18), vis * 0.14 * capScale),
+      "multiply",
+    );
   }
 }
 
@@ -435,7 +661,7 @@ function paintEye(
   tech: Technique,
   gain: number,
 ) {
-  const strength = amount * gain;
+  const strength = amount * gain * capScale;
   if (upper.length < 4 || strength <= 0.02) return;
   const outer = upper[0];
   const inner = upper[upper.length - 1];
@@ -456,38 +682,60 @@ function paintEye(
       return { x: point.x + ux * lift, y: point.y + uy * lift };
     });
     ctx.beginPath();
-    upper.forEach((point, index) => (index ? ctx.lineTo(point.x, point.y) : ctx.moveTo(point.x, point.y)));
+    upper.forEach((point, index) =>
+      index ? ctx.lineTo(point.x, point.y) : ctx.moveTo(point.x, point.y),
+    );
     for (let i = crease.length - 1; i >= 0; i -= 1) ctx.lineTo(crease[i].x, crease[i].y);
     ctx.closePath();
+    // Sombra difuminada y multiplicada: se funde con el párpado en vez de quedar como una caja.
+    ctx.filter = `blur(${Math.max(1.5, span * 0.07).toFixed(1)}px)`;
+    ctx.globalCompositeOperation = "multiply";
     const shade = ctx.createLinearGradient(inner.x, inner.y, outer.x, outer.y);
     shade.addColorStop(0, rgba(color, 0.04 * strength));
     shade.addColorStop(0.5, rgba(color, 0.2 * tech.eyeSmoke * strength));
     shade.addColorStop(1, rgba(deep, 0.5 * tech.eyeSmoke * strength));
     ctx.fillStyle = shade;
     ctx.fill();
+    ctx.filter = "none";
+    ctx.globalCompositeOperation = "source-over";
   }
-  if (lower.length > 3) {
-    ctx.beginPath();
-    upper.forEach((point, index) => (index ? ctx.lineTo(point.x, point.y) : ctx.moveTo(point.x, point.y)));
-    for (let i = lower.length - 1; i >= 0; i -= 1) ctx.lineTo(lower[i].x, lower[i].y);
-    ctx.closePath();
-    ctx.fillStyle = rgba(mix(color, { r: 255, g: 236, b: 224 }, 0.4), (0.08 + tech.eyeSmoke * 0.12) * strength);
-    ctx.fill();
-  }
+  // No se pinta entre los párpados: ahí está el blanco del ojo y lo volvía lechoso.
   if (tech.eyeLiner > 0.05) {
+    // Solo la mitad exterior del párpado, de dentro hacia fuera, y el rabillo sale desde la esquina
+    // exterior (antes volvía en línea recta desde el lagrimal y cruzaba el ojo).
+    const lash = upper.slice(0, Math.max(3, Math.ceil(upper.length * 0.62))).reverse();
     ctx.beginPath();
-    upper.forEach((point, index) => (index ? ctx.lineTo(point.x, point.y) : ctx.moveTo(point.x, point.y)));
+    lash.forEach((point, index) =>
+      index ? ctx.lineTo(point.x, point.y) : ctx.moveTo(point.x, point.y),
+    );
     if (tech.eyeLiner > 0.55) {
-      ctx.lineTo(outer.x + vx * span * 0.22 + ux * span * 0.05, outer.y + vy * span * 0.22 + uy * span * 0.05);
+      ctx.lineTo(
+        outer.x + vx * span * 0.13 + ux * span * 0.06,
+        outer.y + vy * span * 0.13 + uy * span * 0.06,
+      );
     }
-    ctx.strokeStyle = rgba(deep, Math.min(0.92, (0.2 + tech.eyeLiner * 0.65) * Math.min(1.1, strength + 0.2)));
-    ctx.lineWidth = Math.max(0.9, span * (0.018 + tech.eyeLiner * 0.03));
+    ctx.filter = "blur(0.6px)";
+    ctx.strokeStyle = rgba(
+      deep,
+      Math.min(0.85, (0.2 + tech.eyeLiner * 0.55) * Math.min(1.1, strength + 0.2)),
+    );
+    ctx.lineWidth = Math.max(0.9, span * (0.014 + tech.eyeLiner * 0.022));
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
     ctx.stroke();
+    ctx.filter = "none";
   }
   if (tech.eyeGloss > 0.08) {
-    blob(ctx, mid, span * 0.16, span * 0.07, 0, { r: 255, g: 248, b: 240 }, 0.28 * tech.eyeGloss * strength, "screen");
+    blob(
+      ctx,
+      mid,
+      span * 0.16,
+      span * 0.07,
+      0,
+      { r: 255, g: 248, b: 240 },
+      0.28 * tech.eyeGloss * strength,
+      "screen",
+    );
   }
   ctx.restore();
 }
@@ -506,16 +754,23 @@ function paintBrows(
   const deep = mix(color, { r: 42, g: 26, b: 18 }, 0.45);
   ctx.save();
   ctx.beginPath();
-  top.forEach((point, index) => (index ? ctx.lineTo(point.x, point.y) : ctx.moveTo(point.x, point.y)));
+  top.forEach((point, index) =>
+    index ? ctx.lineTo(point.x, point.y) : ctx.moveTo(point.x, point.y),
+  );
   for (let i = bot.length - 1; i >= 0; i -= 1) ctx.lineTo(bot[i].x, bot[i].y);
   ctx.closePath();
-  ctx.fillStyle = rgba(deep, Math.min(0.5, 0.08 + vis * 0.38));
+  ctx.filter = `blur(${Math.max(1, dist(top[0], top[top.length - 1]) * 0.012).toFixed(1)}px)`;
+  ctx.globalCompositeOperation = "multiply";
+  ctx.fillStyle = rgba(deep, Math.min(cap(0.32), (0.06 + vis * 0.24) * capScale));
   ctx.fill();
-  ctx.strokeStyle = rgba(deep, Math.min(0.72, 0.16 + vis * 0.5));
+  ctx.filter = "none";
+  ctx.strokeStyle = rgba(deep, Math.min(cap(0.28), (0.06 + vis * 0.18) * capScale));
   ctx.lineWidth = Math.max(0.7, dist(top[0], top[top.length - 1]) * (0.02 + tech.brow * 0.02));
   ctx.lineCap = "round";
   ctx.beginPath();
-  top.forEach((point, index) => (index ? ctx.lineTo(point.x, point.y) : ctx.moveTo(point.x, point.y)));
+  top.forEach((point, index) =>
+    index ? ctx.lineTo(point.x, point.y) : ctx.moveTo(point.x, point.y),
+  );
   ctx.stroke();
   ctx.restore();
 }
@@ -536,14 +791,59 @@ function paintHighlight(
   const color = mix(rgbOf(hex), { r: 255, g: 250, b: 242 }, 0.55);
   const eye = Math.max(18, dist(px(lm, 33, w, h), px(lm, 263, w, h)));
   const nose = px(lm, 6, w, h);
-  blob(ctx, nose, eye * 0.05, eye * 0.2, 0, color, Math.min(0.28, vis * 0.34) * place.noseLight, "soft-light");
-  blob(ctx, px(lm, 133, w, h), eye * 0.06, eye * 0.05, 0, color, Math.min(0.22, vis * 0.25), "screen");
-  blob(ctx, px(lm, 362, w, h), eye * 0.06, eye * 0.05, 0, color, Math.min(0.22, vis * 0.25), "screen");
+  blob(
+    ctx,
+    nose,
+    eye * 0.05,
+    eye * 0.2,
+    0,
+    color,
+    Math.min(cap(0.28), vis * 0.34 * capScale) * place.noseLight,
+    "soft-light",
+  );
+  blob(
+    ctx,
+    px(lm, 133, w, h),
+    eye * 0.06,
+    eye * 0.05,
+    0,
+    color,
+    Math.min(cap(0.22), vis * 0.25 * capScale),
+    "screen",
+  );
+  blob(
+    ctx,
+    px(lm, 362, w, h),
+    eye * 0.06,
+    eye * 0.05,
+    0,
+    color,
+    Math.min(cap(0.22), vis * 0.25 * capScale),
+    "screen",
+  );
   for (const index of [116, 345]) {
     const bone = px(lm, index, w, h);
-    blob(ctx, { x: bone.x, y: bone.y - eye * 0.04 }, eye * 0.12, eye * 0.06, 0, color, Math.min(0.24, vis * 0.28), "soft-light");
+    blob(
+      ctx,
+      { x: bone.x, y: bone.y - eye * 0.04 },
+      eye * 0.12,
+      eye * 0.06,
+      0,
+      color,
+      Math.min(cap(0.24), vis * 0.28 * capScale),
+      "soft-light",
+    );
   }
-  blob(ctx, px(lm, 0, w, h), eye * 0.05, eye * 0.035, 0, color, Math.min(0.18, vis * 0.2), "screen");
+  blob(
+    ctx,
+    px(lm, 0, w, h),
+    eye * 0.05,
+    eye * 0.035,
+    0,
+    color,
+    Math.min(cap(0.18), vis * 0.2 * capScale),
+    "screen",
+  );
 }
 
 function paintLips(
@@ -566,12 +866,14 @@ function paintLips(
   layer.height = ctx.canvas.height;
   const g = layer.getContext("2d");
   if (!g) return;
+  g.filter = `blur(${Math.max(1, dist(shaped[0], shaped[Math.floor(shaped.length / 2)]) * 0.02).toFixed(1)}px)`;
   smoothClose(g, shaped);
   g.fillStyle = rgba(color, 1);
   g.fill();
+  g.filter = "none";
   const center = centroid(shaped);
   const lower = shaped.reduce((best, point) => (point.y > best.y ? point : best), shaped[0]);
-  const shineAt = { x: (center.x + lower.x) / 2, y: (center.y * 0.4 + lower.y * 0.6) };
+  const shineAt = { x: (center.x + lower.x) / 2, y: center.y * 0.4 + lower.y * 0.6 };
   const radius = Math.max(8, dist(shaped[0], shaped[Math.floor(shaped.length / 2)]) * 0.45);
   g.globalCompositeOperation = "source-atop";
   const gloss = g.createRadialGradient(shineAt.x, shineAt.y, 1, shineAt.x, shineAt.y, radius);
@@ -580,12 +882,20 @@ function paintLips(
   g.fillStyle = gloss;
   g.fillRect(0, 0, layer.width, layer.height);
   g.globalCompositeOperation = "source-over";
+  g.filter = "blur(0.8px)";
   smoothClose(g, shaped);
-  g.strokeStyle = rgba(edge, 0.55);
-  g.lineWidth = Math.max(0.8, radius * 0.06);
+  g.strokeStyle = rgba(edge, 0.35);
+  g.lineWidth = Math.max(0.8, radius * 0.05);
   g.stroke();
+  g.filter = "none";
+  const alpha = Math.min(0.94, (0.28 + vis * 0.7) * Math.min(1.25, capScale));
   ctx.save();
-  ctx.globalAlpha = Math.min(0.92, 0.28 + vis * 0.7);
+  // Multiplicar conserva las líneas y el brillo reales del labio; soft-light le da cuerpo al color.
+  ctx.globalCompositeOperation = "multiply";
+  ctx.globalAlpha = alpha * 0.85;
+  ctx.drawImage(layer, 0, 0);
+  ctx.globalCompositeOperation = "soft-light";
+  ctx.globalAlpha = alpha * 0.6;
   ctx.drawImage(layer, 0, 0);
   ctx.restore();
 }
@@ -618,35 +928,84 @@ function drawCosmetics(
   const shape = read?.shape ?? "ovalado";
   const undertone = read?.undertone ?? "neutro";
   const depth = read?.depth ?? "media";
-  const tech = TECHNIQUE[subject.situation];
+  const tech = withLevel(boosted(TECHNIQUE[subject.situation], subject.boost ?? 0), subject.level);
+  capScale = subject.level ? LEVEL_SCALE[subject.level] : 1;
   const place = placeOf(shape);
   const gain = depthGain(depth);
   const zone = (name: PaintZone) => recipe.zones[name];
 
   const base = zone("base");
-  if (base?.enabled) paintBase(ctx, lm, oval, skin, base.hex, base.intensity, tech, undertone, gain, w, h);
+  if (base?.enabled)
+    paintBase(ctx, lm, oval, skin, base.hex, base.intensity, tech, undertone, gain, w, h);
   const contour = zone("contorno");
   if (contour?.enabled) {
     paintContour(ctx, lm, w, h, contour.hex, contour.intensity, tech, place, skin, undertone, gain);
   }
   const blush = zone("rubor");
-  if (blush?.enabled) paintBlush(ctx, lm, w, h, blush.hex, blush.intensity, tech, place, skin, undertone, gain);
+  if (blush?.enabled)
+    paintBlush(ctx, lm, w, h, blush.hex, blush.intensity, tech, place, skin, undertone, gain);
   const eyes = zone("ojos");
   if (eyes?.enabled) {
-    const color = mix(wear(rgbOf(eyes.hex), skin, tech.pigment, undertone), { r: 48, g: 26, b: 22 }, tech.eyeSmoke * 0.4);
-    paintEye(ctx, pathOf(lm, RIGHT_UPPER, w, h), pathOf(lm, RIGHT_LOWER, w, h), color, eyes.intensity, tech, gain);
-    paintEye(ctx, pathOf(lm, LEFT_UPPER, w, h), pathOf(lm, LEFT_LOWER, w, h), color, eyes.intensity, tech, gain);
+    const color = mix(
+      wear(rgbOf(eyes.hex), skin, tech.pigment, undertone),
+      { r: 48, g: 26, b: 22 },
+      tech.eyeSmoke * 0.4,
+    );
+    paintEye(
+      ctx,
+      pathOf(lm, RIGHT_UPPER, w, h),
+      pathOf(lm, RIGHT_LOWER, w, h),
+      color,
+      eyes.intensity,
+      tech,
+      gain,
+    );
+    paintEye(
+      ctx,
+      pathOf(lm, LEFT_UPPER, w, h),
+      pathOf(lm, LEFT_LOWER, w, h),
+      color,
+      eyes.intensity,
+      tech,
+      gain,
+    );
   }
   const brows = zone("cejas");
   if (brows?.enabled) {
     const color = wear(rgbOf(brows.hex), skin, Math.max(0.45, tech.pigment), undertone);
-    paintBrows(ctx, pathOf(lm, RIGHT_BROW_TOP, w, h), pathOf(lm, RIGHT_BROW_BOT, w, h), color, brows.intensity, tech, gain);
-    paintBrows(ctx, pathOf(lm, LEFT_BROW_TOP, w, h), pathOf(lm, LEFT_BROW_BOT, w, h), color, brows.intensity, tech, gain);
+    paintBrows(
+      ctx,
+      pathOf(lm, RIGHT_BROW_TOP, w, h),
+      pathOf(lm, RIGHT_BROW_BOT, w, h),
+      color,
+      brows.intensity,
+      tech,
+      gain,
+    );
+    paintBrows(
+      ctx,
+      pathOf(lm, LEFT_BROW_TOP, w, h),
+      pathOf(lm, LEFT_BROW_BOT, w, h),
+      color,
+      brows.intensity,
+      tech,
+      gain,
+    );
   }
   const light = zone("iluminador");
   if (light?.enabled) paintHighlight(ctx, lm, w, h, light.hex, light.intensity, tech, place, gain);
   const lips = zone("labios");
-  if (lips?.enabled) paintLips(ctx, pathOf(lm, LIP_OUTER, w, h), lips.hex, lips.intensity, tech, skin, undertone, gain);
+  if (lips?.enabled)
+    paintLips(
+      ctx,
+      pathOf(lm, LIP_OUTER, w, h),
+      lips.hex,
+      lips.intensity,
+      tech,
+      skin,
+      undertone,
+      gain,
+    );
 
   const mask = featherMask(oval, w, h);
   ctx.save();
