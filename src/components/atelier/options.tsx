@@ -10,6 +10,7 @@ export function OptionsScreen({
   analysis,
   analyzing,
   aiPending,
+  photo,
   summary,
   skinLine,
   readingSkin,
@@ -25,6 +26,8 @@ export function OptionsScreen({
   analyzing: boolean;
   /** True mientras la imagen con IA de esa tarjeta todavía no ha llegado. */
   aiPending: (cardId: string) => boolean;
+  /** Su foto original, para el marcador mientras la IA trabaja. */
+  photo: string;
   summary: string;
   skinLine: string;
   readingSkin: boolean;
@@ -122,38 +125,55 @@ export function OptionsScreen({
           </button>
         </div>
       ) : null}
+      {cards?.some((item) => aiPending(item.id)) ? (
+        <p className="ai-wait mx-auto mt-6 max-w-md" aria-live="polite">
+          {t("opt.aiWait")}
+        </p>
+      ) : null}
       <div className="mt-7 flex flex-col gap-3">
         {cards
-          ? cards.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                data-testid={`option-${item.id}`}
-                onClick={() => onChoose(item)}
-                aria-label={`${t(`level.${item.id}`)}: ${t(`line.${situation}.${item.id}`)}`}
-                className="look-choice-card"
-              >
-                <span className="relative shrink-0">
-                  <img src={item.imageUrl} alt="" className="look-choice-image object-cover" />
-                  {aiPending(item.id) ? (
-                    <span className="ai-badge" aria-live="polite">
-                      {t("opt.aiPending")}
+          ? cards.map((item) => {
+              const pending = aiPending(item.id);
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  data-testid={`option-${item.id}`}
+                  disabled={pending}
+                  aria-busy={pending}
+                  onClick={() => onChoose(item)}
+                  aria-label={`${t(`level.${item.id}`)}: ${t(`line.${situation}.${item.id}`)}`}
+                  className="look-choice-card"
+                >
+                  <span className="relative shrink-0">
+                    {pending ? (
+                      // Mientras la IA trabaja no se enseña el pintado del móvil: parecería la respuesta.
+                      <span className="look-choice-image ai-creating">
+                        {photo ? <img src={photo} alt="" /> : null}
+                        <span className="ai-creating-label">{t("opt.aiPending")}</span>
+                      </span>
+                    ) : (
+                      <img
+                        src={item.imageUrl}
+                        alt=""
+                        className="look-choice-image ai-reveal object-cover"
+                      />
+                    )}
+                  </span>
+                  <span className="min-w-0 flex-1 py-3 pr-4 text-left">
+                    <span className="block font-display text-[1.4rem] leading-tight">
+                      {t(`level.${item.id}`)}
                     </span>
-                  ) : null}
-                </span>
-                <span className="min-w-0 flex-1 py-3 pr-4 text-left">
-                  <span className="block font-display text-[1.4rem] leading-tight">
-                    {t(`level.${item.id}`)}
+                    <span className="mt-1 block text-xs leading-5 text-muted">
+                      {t(`line.${situation}.${item.id}`)}
+                    </span>
                   </span>
-                  <span className="mt-1 block text-xs leading-5 text-muted">
-                    {t(`line.${situation}.${item.id}`)}
+                  <span className="look-choice-arrow" aria-hidden="true">
+                    <ArrowRight className="size-4" />
                   </span>
-                </span>
-                <span className="look-choice-arrow" aria-hidden="true">
-                  <ArrowRight className="size-4" />
-                </span>
-              </button>
-            ))
+                </button>
+              );
+            })
           : loading
             ? [0, 1, 2].map((item) => (
                 <div key={item} className="look-choice-card">

@@ -170,7 +170,7 @@ export function AtelierApp() {
 
   // Con clave de Gemini, cada tarjeta se mejora con una foto editada por IA. Si falla, queda el pintado local.
   useEffect(() => {
-    if (view !== "options" || !cards || !capture?.read || !situation || analyzing) return;
+    if (view !== "options" || !cards || !capture?.read || !situation) return;
     const read = capture.read;
     const skin = [profile?.skin, analysisSkin].filter(Boolean).join(". ").slice(0, 400);
     const owned = noteZones(profile?.note ?? "");
@@ -207,7 +207,7 @@ export function AtelierApp() {
             setAiNote(error instanceof Error ? error.message.slice(0, 160) : "error");
         });
     }
-  }, [view, cards, capture, situation, profile, shot, analyzing, analysisSkin]);
+  }, [view, cards, capture, situation, profile, shot, analysisSkin]);
 
   // La maquilladora mira el rostro y la piel una vez por foto.
   useEffect(() => {
@@ -351,6 +351,7 @@ export function AtelierApp() {
           analysis={analysis}
           analyzing={analyzing}
           aiPending={(cardId) => !aiState[`${shot}:${cardId}`]}
+          photo={capture ? jpegDataUrl(capture.photo) : ""}
           summary={profile ? profile.tastes.map((id) => t(`taste.${id}`)).join(", ") : ""}
           skinLine={
             profile?.skin

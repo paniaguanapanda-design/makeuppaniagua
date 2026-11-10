@@ -20,7 +20,9 @@ const STORAGE_KEY = "neusta-lang";
 type Dict = Record<string, string>;
 
 const es: Dict = {
-  "opt.aiPending": "✨ IA…",
+  "opt.aiPending": "Creando con IA…",
+  "opt.aiWait":
+    "✨ Tu maquilladora IA está creando tus tres looks sobre tu foto. Tarda unos 30 segundos.",
   "lang.name": "Español",
   "common.back": "Volver",
   "common.stylists": "Estilistas",
@@ -328,7 +330,9 @@ const es: Dict = {
 };
 
 const en: Dict = {
-  "opt.aiPending": "✨ AI…",
+  "opt.aiPending": "Creating with AI…",
+  "opt.aiWait":
+    "✨ Your AI makeup artist is creating your three looks on your photo. It takes about 30 seconds.",
   "lang.name": "English",
   "common.back": "Back",
   "common.stylists": "Stylists",
@@ -638,7 +642,9 @@ const en: Dict = {
 };
 
 const it: Dict = {
-  "opt.aiPending": "✨ IA…",
+  "opt.aiPending": "Creo con l'IA…",
+  "opt.aiWait":
+    "✨ La tua truccatrice IA sta creando i tuoi tre look sulla tua foto. Ci vogliono circa 30 secondi.",
   "lang.name": "Italiano",
   "common.back": "Indietro",
   "common.stylists": "Truccatori",
